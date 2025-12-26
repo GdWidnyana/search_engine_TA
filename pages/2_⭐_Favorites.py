@@ -16,8 +16,7 @@ sys.path.insert(0, str(PARENT_DIR))
 from config import CUSTOM_CSS
 from pages_utils import load_favorites, save_favorites_func
 from detail_utils import render_document_detail, get_document_details
-from timezone_utils import inject_timezone_detector, get_browser_time_info
-from utils import parse_keywords, parse_timestamp_to_wib, format_datetime_for_display
+from utils import parse_keywords
 from reset_component import render_reset_menu
 
 st.set_page_config(page_title="Favorites", page_icon="⭐", layout="wide")
@@ -153,14 +152,15 @@ def render_favorite_card(fav, index):
     with col2:
         if fav.get('saved_at'):
             try:
-                # Parse dan format sebagai WIB
-                saved_dt = parse_timestamp_to_wib(fav['saved_at'])
-                saved_date = format_datetime_for_display(saved_dt, 'date_time')
-                st.markdown(f"**Disimpan:** {saved_date}")
-            except Exception as e:
-                st.markdown(f"**Disimpan:** {fav['saved_at']}")
-                print(f"Error parsing saved_at: {e}")
-                
+                # Parse sebagai string biasa
+                saved_dt = datetime.strptime(fav['saved_at'], '%Y-%m-%d %H:%M:%S')
+                saved_date = saved_dt.strftime('%d/%m/%Y %H:%M')
+            except:
+                # Fallback untuk format lama
+                saved_dt = datetime.fromisoformat(fav['saved_at'].replace('Z', ''))
+                saved_date = saved_dt.strftime('%d/%m/%Y %H:%M')
+            
+            st.markdown(f"**Disimpan:** {saved_date}")
     with col3:
         if fav.get('domain'):
             st.markdown(f"**Domain:** {fav['domain'].upper()}")
@@ -363,9 +363,6 @@ def create_favorites_excel(favorites):
         return None
 
 def main():
-    # Inject timezone detector
-    inject_timezone_detector()
-    
     # Check if detail should be shown
     if 'show_detail' in st.session_state and st.session_state.show_detail:
         st.markdown("---")
