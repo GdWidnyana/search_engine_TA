@@ -4,7 +4,7 @@ Utility functions for the Search Engine
 
 import json
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 from typing import List, Dict, Any
 import hashlib
 
@@ -176,135 +176,7 @@ def export_to_csv(data: List[Dict], filename: str) -> str:
     
     return str(output_path)
 
-def get_current_wib_datetime() -> datetime:
-    """
-    Get current datetime in WIB (UTC+7) regardless of server timezone
-    """
-    # Always get UTC time and add 7 hours for WIB
-    utc_now = datetime.now(timezone.utc)
-    wib_now = utc_now + timedelta(hours=7)
-    return wib_now
 
-def add_search_to_history(query: str, num_results: int, search_time: float):
-    """Add search to history - Always save as WIB time string"""
-    history = load_search_history()
-    
-    # Save as simple WIB time string
-    timestamp = get_current_wib_datetime().strftime('%Y-%m-%d %H:%M:%S')
-    
-    history.insert(0, {
-        'timestamp': timestamp,
-        'query': query,
-        'num_results': num_results,
-        'search_time': search_time
-    })
-    
-    if len(history) > 100:
-        history = history[:100]
-    
-    save_search_history(history)
-    return True
-
-def save_favorite_document(doc_data: dict):
-    """Save document to favorites - Always save as WIB time string"""
-    favorites = load_favorites()
-    
-    # Check if already exists
-    for fav in favorites:
-        if fav.get('doc_id') == doc_data.get('doc_id'):
-            return False
-    
-    # Save as WIB time string
-    doc_data['saved_at'] = get_current_wib_datetime().strftime('%Y-%m-%d %H:%M:%S')
-    favorites.append(doc_data)
-    
-    save_favorites_func(favorites)
-    return True
-
-def parse_timestamp_to_wib(timestamp_str: str) -> datetime:
-    """
-    Parse timestamp string and ensure it's in WIB time
-    
-    Handles multiple formats:
-    1. '2025-12-26 10:36:12' (simple format - assume WIB)
-    2. '2025-12-26T03:36:12Z' (ISO UTC - convert to WIB)
-    3. '2025-12-26T10:36:12+07:00' (ISO with offset)
-    """
-    try:
-        # Format 1: Simple string '2025-12-26 10:36:12'
-        if 'T' not in timestamp_str and 'Z' not in timestamp_str:
-            # Parse as WIB time directly
-            return datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
-        
-        # Format 2: ISO with UTC '2025-12-26T03:36:12Z'
-        elif 'Z' in timestamp_str:
-            # Parse as UTC
-            dt_utc = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
-            # Convert to WIB (UTC+7)
-            return dt_utc + timedelta(hours=7)
-        
-        # Format 3: ISO with offset '2025-12-26T10:36:12+07:00'
-        else:
-            # Parse with timezone info
-            dt = datetime.fromisoformat(timestamp_str)
-            # If it has timezone info, convert to naive WIB
-            if dt.tzinfo is not None:
-                dt = dt.replace(tzinfo=None) - dt.utcoffset() + timedelta(hours=7)
-            return dt
-            
-    except Exception as e:
-        print(f"Error parsing timestamp '{timestamp_str}': {e}")
-        # Fallback to current WIB time
-        return get_current_wib_datetime()
-
-def format_datetime_for_display(dt: datetime, format_type: str = 'full') -> str:
-    """
-    Format datetime for display in user-friendly format
-    """
-    if format_type == 'full':
-        return dt.strftime('%d/%m/%Y %H:%M:%S')
-    elif format_type == 'date_time':
-        return dt.strftime('%d/%m/%Y %H:%M')
-    elif format_type == 'date':
-        return dt.strftime('%d/%m/%Y')
-    elif format_type == 'time':
-        return dt.strftime('%H:%M:%S')
-    elif format_type == 'relative':
-        now_wib = get_current_wib_datetime()
-        
-        if dt.date() == now_wib.date():
-            return f"Hari ini {dt.strftime('%H:%M')}"
-        
-        yesterday = now_wib.date() - timedelta(days=1)
-        if dt.date() == yesterday:
-            return f"Kemarin {dt.strftime('%H:%M')}"
-        
-        if dt.year == now_wib.year:
-            return dt.strftime("%d %b %H:%M")
-        
-        return dt.strftime("%d %b %Y")
-    else:
-        return dt.strftime('%d/%m/%Y %H:%M')
-
-# Fungsi bantu untuk debugging
-def debug_timestamp_info(timestamp_str: str):
-    """Debug function to show timestamp conversion info"""
-    print(f"\n=== DEBUG TIMESTAMP ===")
-    print(f"Original string: {timestamp_str}")
-    
-    try:
-        dt_parsed = parse_timestamp_to_wib(timestamp_str)
-        print(f"Parsed as WIB: {dt_parsed}")
-        print(f"Formatted: {format_datetime_for_display(dt_parsed, 'date_time')}")
-        
-        # Show current times for comparison
-        print(f"\nCurrent UTC: {datetime.now(timezone.utc)}")
-        print(f"Current WIB: {get_current_wib_datetime()}")
-        print(f"Current Server: {datetime.now()}")
-    except Exception as e:
-        print(f"Error: {e}")
-    print("=====================\n")
-                
 def validate_email(email: str) -> bool:
     """Simple email validation"""
     import re
