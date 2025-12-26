@@ -145,10 +145,17 @@ def render_search_trends(history):
         st.info("Belum ada data untuk tren")
         return
     
-    # Create DataFrame
+    # Create DataFrame - PARSE sebagai string biasa
     df_data = []
     for entry in history:
-        dt = datetime.fromisoformat(entry['timestamp'])
+        # Parse timestamp tanpa timezone
+        try:
+            # Format: '2025-12-26 17:39:39'
+            dt = datetime.strptime(entry['timestamp'], '%Y-%m-%d %H:%M:%S')
+        except:
+            # Fallback untuk format lama
+            dt = datetime.fromisoformat(entry['timestamp'].replace('Z', ''))
+        
         df_data.append({
             'date': dt.date(),
             'hour': dt.hour,
