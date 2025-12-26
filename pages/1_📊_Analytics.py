@@ -220,21 +220,6 @@ def render_popular_queries(stats):
             st.markdown(f"**{query}** - {count}x pencarian")
             st.progress(min(count / stats['top_queries'][0][1], 1.0))
     
-    # Debug info untuk melihat waktu
-    with st.expander("🕒 Debug Time Info", expanded=False):
-        if history and len(history) > 0:
-            sample_entry = history[0]
-            st.write(f"Sample timestamp from DB: {sample_entry.get('timestamp')}")
-            # Perbaiki: gunakan fungsi dari utils
-            from utils import parse_and_convert_timestamp
-            dt_utc = parse_and_convert_timestamp(sample_entry['timestamp'], to_wib=False)
-            dt_wib = parse_and_convert_timestamp(sample_entry['timestamp'], to_wib=True)
-            st.write(f"UTC: {dt_utc}")
-            st.write(f"WIB: {dt_wib}")
-            st.write(f"Server time now: {datetime.now()}")
-            from datetime import timezone
-            st.write(f"UTC time now: {datetime.now(timezone.utc)}")
-
 
 def render_performance_stats(stats, history):
     """Render performance statistics"""
