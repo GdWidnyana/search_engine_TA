@@ -1,0 +1,260 @@
+{
+  "analisis sentimen": [
+    "doc_2",
+    "doc_3",
+    "doc_6",
+    "doc_16",
+    "doc_24",
+    "doc_49",
+    "doc_61",
+    "doc_63",
+    "doc_80",
+    "doc_83",
+    "doc_84",
+    "doc_92",
+    "doc_97",
+    "doc_101",
+    "doc_109",
+    "doc_117",
+    "doc_119",
+    "doc_121",
+    "doc_142"
+  ],
+  "machine learning": [
+    "doc_2",
+    "doc_3",
+    "doc_6",
+    "doc_9",
+    "doc_16",
+    "doc_21",
+    "doc_24",
+    "doc_47",
+    "doc_49",
+    "doc_51",
+    "doc_61",
+    "doc_63",
+    "doc_65"
+  ],
+  "model peramalan": [
+    "doc_8",
+    "doc_11",
+    "doc_21",
+    "doc_59",
+    "doc_2311"
+  ],
+  "user interface": [
+    "doc_5",
+    "doc_13",
+    "doc_15",
+    "doc_33",
+    "doc_34",
+    "doc_56",
+    "doc_64",
+    "doc_69"
+  ],
+  "chatbot": [
+    "doc_0",
+    "doc_38",
+    "doc_90",
+    "doc_2539"
+  ],
+  "pemodelan topik": [
+    "doc_155",
+    "doc_2446",
+    "doc_2507",
+    "doc_2537",
+    "doc_2646"
+  ],
+  "peringkasan teks": [
+    "doc_826",
+    "doc_1781",
+    "doc_2367",
+    "doc_2501"
+  ],
+  "sistem rekomendasi": [
+    "doc_300",
+    "doc_841",
+    "doc_1785",
+    "doc_1888",
+    "doc_1904",
+    "doc_2176",
+    "doc_2187",
+    "doc_2202",
+    "doc_2206",
+    "doc_2232",
+    "doc_2250",
+    "doc_2259",
+    "doc_2275",
+    "doc_2285",
+    "doc_2298"
+  ],
+  "klasifikasi musik": [
+    "doc_2244",
+    "doc_2350",
+    "doc_2740"
+  ],
+  "ontologi": [
+    "doc_1748",
+    "doc_1767",
+    "doc_1821",
+    "doc_2360",
+    "doc_2363",
+    "doc_2376",
+    "doc_2426",
+    "doc_2431",
+    "doc_2432",
+    "doc_2433",
+    "doc_2435",
+    "doc_2436",
+    "doc_2457",
+    "doc_2469",
+    "doc_2483",
+    "doc_2498"
+  ],
+  "manajemen pengetahuan": [
+    "doc_111",
+    "doc_1748",
+    "doc_1767",
+    "doc_2431",
+    "doc_2469",
+    "doc_2527",
+    "doc_2709"
+  ],
+  "pengamanan citra digital": [
+    "doc_2442"
+  ],
+  "enkripsi data": [
+    "doc_137",
+    "doc_2173",
+    "doc_2633",
+    "doc_2644"
+  ],
+  "keamanan data": [
+    "doc_39",
+    "doc_58"
+  ],
+  "sistem IOT": [
+    "doc_2725"
+  ],
+  "sistem deteksi penyakit": [
+    "doc_2733"
+  ],
+  "klasifikasi penyakit": [
+    "doc_374",
+    "doc_1338",
+    "doc_2015",
+    "doc_2076",
+    "doc_2314",
+    "doc_2315",
+    "doc_2357",
+    "doc_2359",
+    "doc_2373",
+    "doc_2381",
+    "doc_2389",
+    "doc_2399",
+    "doc_2401",
+    "doc_2409",
+    "doc_2452",
+    "doc_2669",
+    "doc_2675",
+    "doc_2733"
+  ],
+  "optimasi algoritma": [
+    "doc_166",
+    "doc_2400",
+    "doc_2552",
+    "doc_2686",
+    "doc_2707",
+    "doc_2727",
+    "doc_2743"
+  ],
+  "aplikasi mobile": [
+    "doc_7",
+    "doc_14",
+    "doc_15",
+    "doc_19",
+    "doc_22",
+    "doc_26",
+    "doc_27",
+    "doc_28",
+    "doc_33",
+    "doc_34",
+    "doc_35",
+    "doc_40",
+    "doc_41"
+  ],
+  "business intelligence": [
+    "doc_50",
+    "doc_59",
+    "doc_129",
+    "doc_138",
+    "doc_2536",
+    "doc_2623",
+    "doc_2625"
+  ],
+  "USER CENTERED DESIGN": [
+    "doc_5",
+    "doc_13",
+    "doc_56",
+    "doc_112",
+    "doc_139",
+    "doc_2415",
+    "doc_2491",
+    "doc_2504",
+    "doc_2508",
+    "doc_2530",
+    "doc_2534",
+    "doc_2554",
+    "doc_2557",
+    "doc_2570",
+    "doc_2576",
+    "doc_2581"
+  ],
+  "desain aplikasi": [
+    "doc_5",
+    "doc_13",
+    "doc_15",
+    "doc_33",
+    "doc_40",
+    "doc_56",
+    "doc_72",
+    "doc_77",
+    "doc_81",
+    "doc_112",
+    "doc_123",
+    "doc_125",
+    "doc_139",
+    "doc_143",
+    "doc_165"
+  ],
+  "USER INTERFACE APLIKASI": [
+    "doc_13",
+    "doc_15",
+    "doc_56",
+    "doc_72",
+    "doc_77",
+    "doc_123",
+    "doc_125",
+    "doc_143",
+    "doc_165",
+    "doc_2632",
+    "doc_2741"
+  ],
+  "sistem pencarian": [
+    "doc_2172",
+    "doc_2177",
+    "doc_2200",
+    "doc_2248",
+    "doc_2279",
+    "doc_2313",
+    "doc_2360",
+    "doc_2432",
+    "doc_2469",
+    "doc_2540",
+    "doc_2548",
+    "doc_2555",
+    "doc_2692",
+    "doc_2705",
+    "doc_2734"
+  ]
+}
