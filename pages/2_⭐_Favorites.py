@@ -19,6 +19,7 @@ from detail_utils import render_document_detail, get_document_details
 from timezone_utils import inject_timezone_detector, get_browser_time_info
 from utils import parse_keywords
 from reset_component import render_reset_menu
+from utils import parse_and_convert_timestamp 
 
 st.set_page_config(page_title="Favorites", page_icon="⭐", layout="wide")
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
@@ -153,28 +154,18 @@ def render_favorite_card(fav, index):
     with col2:
         if fav.get('saved_at'):
             try:
-                # Parse timestamp
-                saved_str = fav['saved_at']
-                
-                # Get browser time info
-                time_info = get_browser_time_info()
-                offset_minutes = time_info.get('offset', -420)
-                
-                # Parse based on format
-                if 'T' in saved_str:  # ISO format
-                    saved_dt = datetime.fromisoformat(saved_str.replace('Z', '+00:00'))
-                else:  # Simple format
-                    saved_dt = datetime.strptime(saved_str, '%Y-%m-%d %H:%M:%S')
-                
-                # Adjust to user's local time
-                if time_info.get('detected', False):
-                    saved_dt = saved_dt - timedelta(minutes=offset_minutes)
-                
+                # Konversi UTC ke WIB
+                saved_dt = parse_and_convert_timestamp(fav['saved_at'], to_wib=True)
                 saved_date = saved_dt.strftime('%d/%m/%Y %H:%M')
                 st.markdown(f"**Disimpan:** {saved_date}")
                 
+                # Debug info
+                if st.session_state.get('debug_time', False):
+                    dt_utc = parse_and_convert_timestamp(fav['saved_at'], to_wib=False)
+                    st.caption(f"UTC: {dt_utc.strftime('%d/%m/%Y %H:%M')}")
             except Exception as e:
-                st.markdown(f"**Disimpan:** {saved_str}")
+                st.markdown(f"**Disimpan:** {fav['saved_at']}")
+                print(f"Error parsing saved_at: {e}")
                 
     with col3:
         if fav.get('domain'):
