@@ -448,7 +448,7 @@ def main():
     st.markdown("---")
     st.markdown("""
         <div style='text-align: center; color: #666; padding: 20px;'>
-            <p>Skripsi Search Engine v2.0 | Powered by Dictionary BM25</p>
+            <p>Skripsi Search Engine v1.0 | Developed by Team 4</p>
             <p>💡 Tips: Gunakan kata kunci spesifik untuk hasil lebih akurat</p>
         </div>
     """, unsafe_allow_html=True)
