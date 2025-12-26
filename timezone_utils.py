@@ -1,145 +1,148 @@
 """
-Timezone utilities for handling browser local time
+Timezone utilities for Streamlit app
+Handles timezone conversion between server (UTC) and client timezone
 """
-import streamlit as st
-import json
-from datetime import datetime, timedelta
-import time
 
-def inject_timezone_detector():
+import streamlit as st
+import streamlit.components.v1 as components
+from datetime import datetime, timezone
+import pytz
+
+
+def get_client_timezone():
     """
-    Inject JavaScript to detect browser timezone and send to Streamlit
-    Returns: JavaScript code as string
+    Get client timezone using JavaScript
+    Returns timezone offset in minutes
     """
-    js_code = """
+    # JavaScript code to get timezone offset
+    timezone_js = """
     <script>
-    function detectTimezone() {
-        try {
-            // Get browser timezone info
-            const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            const offset = new Date().getTimezoneOffset(); // in minutes
-            const localTime = new Date().toISOString();
-            
-            // Create hidden elements to send data to Streamlit
-            const timezoneInput = document.createElement('input');
-            timezoneInput.type = 'hidden';
-            timezoneInput.id = 'browser_timezone';
-            timezoneInput.value = timezone;
-            document.body.appendChild(timezoneInput);
-            
-            const offsetInput = document.createElement('input');
-            offsetInput.type = 'hidden';
-            offsetInput.id = 'browser_offset';
-            offsetInput.value = offset.toString();
-            document.body.appendChild(offsetInput);
-            
-            const localTimeInput = document.createElement('input');
-            localTimeInput.type = 'hidden';
-            localTimeInput.id = 'browser_localtime';
-            localTimeInput.value = localTime;
-            document.body.appendChild(localTimeInput);
-            
-            console.log('Timezone detected:', timezone, 'Offset:', offset);
-            
-            // Trigger Streamlit to read these values
-            if (window.parent) {
-                window.parent.postMessage({
-                    type: 'streamlit:setComponentValue',
-                    value: {
-                        timezone: timezone,
-                        offset: offset,
-                        localTime: localTime
-                    }
-                }, '*');
-            }
-            
-            return { timezone: timezone, offset: offset, localTime: localTime };
-        } catch (error) {
-            console.error('Error detecting timezone:', error);
-            return null;
+    // Get timezone offset in minutes
+    const offset = new Date().getTimezoneOffset();
+    const timezoneName = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    
+    // Send to Streamlit
+    window.parent.postMessage({
+        type: 'streamlit:setComponentValue',
+        data: {
+            offset: offset,
+            timezone: timezoneName
         }
-    }
-    
-    // Run detection when page loads
-    window.addEventListener('load', function() {
-        setTimeout(detectTimezone, 1000);
-    });
-    
-    // Also run when user interacts (for Streamlit reruns)
-    document.addEventListener('click', function() {
-        setTimeout(detectTimezone, 500);
-    });
-    
-    // Initial detection
-    detectTimezone();
+    }, '*');
     </script>
     """
     
-    # Inject the JavaScript
-    st.components.v1.html(js_code, height=0)
+    # Return component
+    return components.html(timezone_js, height=0)
 
-def get_browser_time_info():
-    """
-    Try to get browser time info from session state or return default
-    """
-    # Initialize in session state if not exists
-    if 'browser_time_info' not in st.session_state:
-        st.session_state.browser_time_info = {
-            'timezone': 'Asia/Jakarta',  # Default fallback
-            'offset': -420,  # WIB: UTC+7 = -420 minutes
-            'detected': False,
-            'detection_time': datetime.now().isoformat()
-        }
+
+def init_timezone():
+    """Initialize timezone in session state"""
+    if 'client_tz_offset' not in st.session_state:
+        # Default to UTC if not set
+        st.session_state.client_tz_offset = 0
+        st.session_state.client_timezone = 'UTC'
     
-    return st.session_state.browser_time_info
-
-def adjust_datetime_to_local(iso_timestamp: str, offset_minutes: int = None) -> datetime:
-    """
-    Adjust UTC timestamp to local time using offset
-    offset_minutes: Minutes from UTC (negative for east of UTC, positive for west)
-    Example: WIB (UTC+7) = -420 minutes
-    """
+    # Try to get timezone from JavaScript (non-blocking)
     try:
-        # Parse the timestamp
-        dt = datetime.fromisoformat(iso_timestamp.replace('Z', '+00:00'))
+        tz_info = get_client_timezone()
+        if tz_info:
+            st.session_state.client_tz_offset = tz_info.get('offset', 0)
+            st.session_state.client_timezone = tz_info.get('timezone', 'UTC')
+    except:
+        pass
+
+
+def get_user_timezone():
+    """
+    Get user timezone from session state
+    Falls back to UTC if not available
+    """
+    if 'client_timezone' in st.session_state:
+        try:
+            return pytz.timezone(st.session_state.client_timezone)
+        except:
+            pass
+    
+    # Fallback to UTC
+    return pytz.UTC
+
+
+def convert_utc_to_local(utc_datetime_str: str, tz=None) -> datetime:
+    """
+    Convert UTC datetime string to local timezone
+    
+    Args:
+        utc_datetime_str: ISO format datetime string (assumed UTC)
+        tz: Target timezone (default: user timezone from session)
+    
+    Returns:
+        datetime object in local timezone
+    """
+    if not utc_datetime_str:
+        return None
+    
+    try:
+        # Parse datetime (remove timezone if present)
+        if isinstance(utc_datetime_str, str):
+            dt = datetime.fromisoformat(utc_datetime_str.replace('Z', '+00:00'))
+        else:
+            dt = utc_datetime_str
         
-        # If no offset provided, use default WIB
-        if offset_minutes is None:
-            offset_minutes = -420  # WIB default
+        # Make timezone aware (UTC)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=pytz.UTC)
         
-        # Apply offset
-        dt_adjusted = dt - timedelta(minutes=offset_minutes)
-        return dt_adjusted
+        # Get target timezone
+        if tz is None:
+            tz = get_user_timezone()
+        
+        # Convert to local timezone
+        local_dt = dt.astimezone(tz)
+        
+        return local_dt
         
     except Exception as e:
-        print(f"Error adjusting datetime: {e}")
-        # Fallback to server time
-        return datetime.now()
+        print(f"Error converting timezone: {e}")
+        # Return as-is if conversion fails
+        try:
+            return datetime.fromisoformat(utc_datetime_str.replace('Z', ''))
+        except:
+            return datetime.now()
 
-def format_datetime_for_display(dt: datetime, format_type: str = 'full') -> str:
+
+def format_datetime_local(dt_str: str, format_str: str = "%d/%m/%Y %H:%M:%S") -> str:
     """
-    Format datetime for display
-    format_type: 'full', 'date', 'time', 'relative'
+    Format datetime string in local timezone
+    
+    Args:
+        dt_str: ISO datetime string
+        format_str: Output format string
+    
+    Returns:
+        Formatted datetime string in local timezone
     """
-    if format_type == 'full':
-        return dt.strftime('%d/%m/%Y %H:%M:%S')
-    elif format_type == 'date':
-        return dt.strftime('%d/%m/%Y')
-    elif format_type == 'time':
-        return dt.strftime('%H:%M:%S')
-    elif format_type == 'relative':
-        now = datetime.now()
-        
-        if dt.date() == now.date():
-            return f"Hari ini {dt.strftime('%H:%M')}"
-        
-        yesterday = now.date() - timedelta(days=1)
-        if dt.date() == yesterday:
-            return f"Kemarin {dt.strftime('%H:%M')}"
-        
-        if dt.year == now.year:
-            return dt.strftime("%d %b %H:%M")
-        
-        return dt.strftime("%d %b %Y")
-    else:
-        return dt.strftime('%d/%m/%Y %H:%M')
+    if not dt_str:
+        return "N/A"
+    
+    try:
+        local_dt = convert_utc_to_local(dt_str)
+        return local_dt.strftime(format_str)
+    except Exception as e:
+        print(f"Error formatting datetime: {e}")
+        return dt_str
+
+
+def get_local_now() -> datetime:
+    """Get current time in user's local timezone"""
+    utc_now = datetime.now(pytz.UTC)
+    user_tz = get_user_timezone()
+    return utc_now.astimezone(user_tz)
+
+
+def save_timestamp_utc() -> str:
+    """
+    Get current timestamp in UTC for saving to database
+    Always save in UTC, convert on display
+    """
+    return datetime.now(pytz.UTC).isoformat()
