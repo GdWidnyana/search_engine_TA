@@ -6,10 +6,10 @@ Updated to use Blocked Dictionary + Front Coding
 from pathlib import Path
 #C:\Users\Widnyana\Documents\TUGAS AKHIR\Program TA\streamlit_ir\data\blocks.json
 # Paths - UPDATED untuk menggunakan dictionary
-BASE_DIR = Path(__file__).resolve().parent.parent
-INDEX_PATH = BASE_DIR / "data/index.json"  # Masih digunakan untuk postings
-BLOCKS_PATH = BASE_DIR / "data/blocks.json"  # NEW
-FRONTCODED_PATH = BASE_DIR / "data/frontcoded.json"  # NEW
+BASE_DIR = Path(__file__).resolve().parent
+INDEX_PATH = BASE_DIR / "data/index.json"
+BLOCKS_PATH = BASE_DIR / "data/blocks.json"
+FRONTCODED_PATH = BASE_DIR / "data/frontcoded.json"
 HISTORY_PATH = BASE_DIR / "data/search_history.json"
 
 # Page configuration
