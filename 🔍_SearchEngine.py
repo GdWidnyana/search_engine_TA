@@ -78,7 +78,7 @@ def render_header():
     st.markdown("""
         <div class="main-header">
             <h1>🔍 Skripsi Search Engine</h1>
-            <p class="subtitle">Sistem pencarian skripsi berbasis BM25 dengan Dictionary Optimization</p>
+            <p class="subtitle">Sistem pencarian skripsi berbasis BM25</p>
         </div>
     """, unsafe_allow_html=True)
 
