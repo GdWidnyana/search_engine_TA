@@ -16,6 +16,7 @@ sys.path.insert(0, str(PARENT_DIR))
 from config import CUSTOM_CSS
 from pages_utils import load_favorites, save_favorites_func
 from detail_utils import render_document_detail, get_document_details
+from timezone_utils import inject_timezone_detector, get_browser_time_info
 from utils import parse_keywords
 from reset_component import render_reset_menu
 
@@ -152,15 +153,29 @@ def render_favorite_card(fav, index):
     with col2:
         if fav.get('saved_at'):
             try:
-                # Parse sebagai string biasa
-                saved_dt = datetime.strptime(fav['saved_at'], '%Y-%m-%d %H:%M:%S')
+                # Parse timestamp
+                saved_str = fav['saved_at']
+                
+                # Get browser time info
+                time_info = get_browser_time_info()
+                offset_minutes = time_info.get('offset', -420)
+                
+                # Parse based on format
+                if 'T' in saved_str:  # ISO format
+                    saved_dt = datetime.fromisoformat(saved_str.replace('Z', '+00:00'))
+                else:  # Simple format
+                    saved_dt = datetime.strptime(saved_str, '%Y-%m-%d %H:%M:%S')
+                
+                # Adjust to user's local time
+                if time_info.get('detected', False):
+                    saved_dt = saved_dt - timedelta(minutes=offset_minutes)
+                
                 saved_date = saved_dt.strftime('%d/%m/%Y %H:%M')
-            except:
-                # Fallback untuk format lama
-                saved_dt = datetime.fromisoformat(fav['saved_at'].replace('Z', ''))
-                saved_date = saved_dt.strftime('%d/%m/%Y %H:%M')
-            
-            st.markdown(f"**Disimpan:** {saved_date}")
+                st.markdown(f"**Disimpan:** {saved_date}")
+                
+            except Exception as e:
+                st.markdown(f"**Disimpan:** {saved_str}")
+                
     with col3:
         if fav.get('domain'):
             st.markdown(f"**Domain:** {fav['domain'].upper()}")
@@ -363,6 +378,9 @@ def create_favorites_excel(favorites):
         return None
 
 def main():
+    # Inject timezone detector
+    inject_timezone_detector()
+    
     # Check if detail should be shown
     if 'show_detail' in st.session_state and st.session_state.show_detail:
         st.markdown("---")
