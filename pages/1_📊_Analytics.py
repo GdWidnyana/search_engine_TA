@@ -72,7 +72,7 @@ def render_search_stats(history):
         render_search_trends(history)
     
     with tab2:
-        render_popular_queries(stats)
+        render_popular_queries(stats, history) 
     
     with tab3:
         render_performance_stats(stats, history)
@@ -226,23 +226,11 @@ def render_search_trends(history):
             st.info("Belum ada data pencarian")
 
 
-def render_popular_queries(stats):
+def render_popular_queries(stats, history): 
     """Render popular queries"""
     if not stats['top_queries']:
         st.info("Belum ada data query populer")
         return
-    
-    # Tambahkan debug info untuk melihat waktu
-    with st.expander("🕒 Debug Time Info", expanded=False):
-        if history and len(history) > 0:
-            sample_entry = history[0]
-            st.write(f"Sample timestamp from DB: {sample_entry.get('timestamp')}")
-            dt_utc = parse_and_convert_timestamp(sample_entry['timestamp'], to_wib=False)
-            dt_wib = parse_and_convert_timestamp(sample_entry['timestamp'], to_wib=True)
-            st.write(f"UTC: {dt_utc}")
-            st.write(f"WIB: {dt_wib}")
-            st.write(f"Server time now: {datetime.now()}")
-            st.write(f"UTC time now: {datetime.now(timezone.utc)}")
     
     col1, col2 = st.columns(2)
     
@@ -272,6 +260,21 @@ def render_popular_queries(stats):
         for query, count in stats['top_queries'][:10]:
             st.markdown(f"**{query}** - {count}x pencarian")
             st.progress(min(count / stats['top_queries'][0][1], 1.0))
+    
+    # Debug info untuk melihat waktu
+    with st.expander("🕒 Debug Time Info", expanded=False):
+        if history and len(history) > 0:
+            sample_entry = history[0]
+            st.write(f"Sample timestamp from DB: {sample_entry.get('timestamp')}")
+            # Perbaiki: gunakan fungsi dari utils
+            from utils import parse_and_convert_timestamp
+            dt_utc = parse_and_convert_timestamp(sample_entry['timestamp'], to_wib=False)
+            dt_wib = parse_and_convert_timestamp(sample_entry['timestamp'], to_wib=True)
+            st.write(f"UTC: {dt_utc}")
+            st.write(f"WIB: {dt_wib}")
+            st.write(f"Server time now: {datetime.now()}")
+            from datetime import timezone
+            st.write(f"UTC time now: {datetime.now(timezone.utc)}")
 
 
 def render_performance_stats(stats, history):
