@@ -146,46 +146,30 @@ def render_search_trends(history):
         st.info("Belum ada data untuk tren")
         return
     
-    # Get browser time info for adjustment
-    time_info = get_browser_time_info()
-    offset_minutes = time_info.get('offset', -420)  # Default to WIB
-    
-    # Create DataFrame with timezone adjustment
+    # Create DataFrame - Konversi UTC ke WIB
     df_data = []
     for entry in history:
         try:
-            # Parse the timestamp
-            timestamp_str = entry['timestamp']
-            
-            # Parse based on format
-            if 'T' in timestamp_str:  # ISO format
-                dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
-            else:  # Simple format
-                dt = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
-            
-            # Adjust to user's local time if detected
-            if time_info.get('detected', False):
-                dt_adjusted = dt - timedelta(minutes=offset_minutes)
-            else:
-                dt_adjusted = dt
+            # Parse dan konversi ke WIB
+            dt = parse_and_convert_timestamp(entry['timestamp'], to_wib=True)
             
             df_data.append({
-                'date': dt_adjusted.date(),
-                'hour': dt_adjusted.hour,
+                'date': dt.date(),
+                'hour': dt.hour,
                 'query': entry['query'],
                 'results': entry.get('num_results', 0),
-                'search_time': entry.get('search_time', 0),
-                'original_time': dt
+                'search_time': entry.get('search_time', 0)
             })
         except Exception as e:
-            print(f"Error parsing timestamp {entry.get('timestamp')}: {e}")
+            print(f"Error parsing entry: {e}")
             continue
     
     if not df_data:
-        st.warning("Tidak dapat memproses data timestamp")
+        st.warning("Tidak dapat memproses data")
         return
     
     df = pd.DataFrame(df_data)
+    
     
     # Daily trends - HANYA TANGGAL, TANPA JAM
     daily_counts = df.groupby('date').size().reset_index(name='count')
@@ -246,6 +230,18 @@ def render_popular_queries(stats):
     if not stats['top_queries']:
         st.info("Belum ada data query populer")
         return
+    
+    # Tambahkan debug info untuk melihat waktu
+    with st.expander("🕒 Debug Time Info", expanded=False):
+        if history and len(history) > 0:
+            sample_entry = history[0]
+            st.write(f"Sample timestamp from DB: {sample_entry.get('timestamp')}")
+            dt_utc = parse_and_convert_timestamp(sample_entry['timestamp'], to_wib=False)
+            dt_wib = parse_and_convert_timestamp(sample_entry['timestamp'], to_wib=True)
+            st.write(f"UTC: {dt_utc}")
+            st.write(f"WIB: {dt_wib}")
+            st.write(f"Server time now: {datetime.now()}")
+            st.write(f"UTC time now: {datetime.now(timezone.utc)}")return
     
     col1, col2 = st.columns(2)
     
