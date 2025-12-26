@@ -17,7 +17,14 @@ PARENT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PARENT_DIR))
 
 from config import CUSTOM_CSS, DOMAIN_NAMES
-from utils import load_search_history, get_search_stats, create_index_summary
+from utils import (
+    load_search_history, 
+    get_search_stats, 
+    create_index_summary,
+    parse_timestamp_to_wib,
+    format_datetime_for_display,
+    get_current_wib_datetime
+)
 from pages_utils import load_favorites
 from reset_component import render_reset_menu
 
@@ -34,7 +41,6 @@ def render_analytics_header():
         </div>
     """, unsafe_allow_html=True)
 
-
 def render_search_stats(history):
     """Render search statistics"""
     stats = get_search_stats(history)
@@ -42,6 +48,22 @@ def render_search_stats(history):
     if not history:
         st.info("📊 Belum ada data pencarian. Mulai pencarian untuk melihat statistik.")
         return
+    
+    # Debug info di sidebar
+    with st.sidebar.expander("🕒 Time Debug Info", expanded=False):
+        if history and len(history) > 0:
+            sample_entry = history[0]
+            st.write(f"**Sample timestamp:** {sample_entry.get('timestamp')}")
+            
+            # Parse dan tampilkan
+            dt_parsed = parse_timestamp_to_wib(sample_entry['timestamp'])
+            st.write(f"**Parsed as WIB:** {dt_parsed}")
+            st.write(f"**Formatted:** {format_datetime_for_display(dt_parsed, 'date_time')}")
+            
+            # Current times
+            st.write(f"**Current UTC:** {datetime.now(timezone.utc).strftime('%H:%M:%S')}")
+            st.write(f"**Current WIB:** {get_current_wib_datetime().strftime('%H:%M:%S')}")
+            st.write(f"**Current Server:** {datetime.now().strftime('%H:%M:%S')}")
     
     # Key metrics
     col1, col2, col3, col4 = st.columns(4)
@@ -72,7 +94,7 @@ def render_search_stats(history):
         render_search_trends(history)
     
     with tab2:
-        render_popular_queries(stats, history) 
+        render_popular_queries(stats)
     
     with tab3:
         render_performance_stats(stats, history)
@@ -81,78 +103,18 @@ def render_search_stats(history):
         render_result_distribution(history)
 
 
-# def render_search_trends(history):
-#     """Render search trends over time"""
-#     if not history:
-#         st.info("Belum ada data untuk tren")
-#         return
-    
-#     # Create DataFrame
-#     df_data = []
-#     for entry in history:
-#         dt = datetime.fromisoformat(entry['timestamp'])
-#         df_data.append({
-#             'date': dt.date(),
-#             'hour': dt.hour,
-#             'query': entry['query'],
-#             'results': entry.get('num_results', 0),
-#             'search_time': entry.get('search_time', 0)
-#         })
-    
-#     df = pd.DataFrame(df_data)
-    
-#     # Daily trends
-#     daily_counts = df.groupby('date').size().reset_index(name='count')
-    
-#     col1, col2 = st.columns(2)
-    
-#     with col1:
-#         st.markdown("#### 📅 Tren Harian")
-#         fig = px.line(
-#             daily_counts, 
-#             x='date', 
-#             y='count',
-#             markers=True,
-#             line_shape='spline'
-#         )
-#         fig.update_layout(
-#             xaxis_title="Tanggal",
-#             yaxis_title="Jumlah Pencarian",
-#             plot_bgcolor='rgba(0,0,0,0)',
-#             height=300
-#         )
-#         st.plotly_chart(fig, use_container_width=True)
-    
-#     with col2:
-#         st.markdown("#### 🕐 Distribusi Jam")
-#         hourly_counts = df.groupby('hour').size().reset_index(name='count')
-#         fig = px.bar(
-#             hourly_counts,
-#             x='hour',
-#             y='count',
-#             color='count',
-#             color_continuous_scale='viridis'
-#         )
-#         fig.update_layout(
-#             xaxis_title="Jam (24h)",
-#             yaxis_title="Jumlah Pencarian",
-#             plot_bgcolor='rgba(0,0,0,0)',
-#             height=300
-#         )
-#         st.plotly_chart(fig, use_container_width=True)
-
 def render_search_trends(history):
     """Render search trends over time"""
     if not history:
         st.info("Belum ada data untuk tren")
         return
     
-    # Create DataFrame - Konversi UTC ke WIB
+    # Create DataFrame dengan parsing ke WIB
     df_data = []
     for entry in history:
         try:
-            # Parse dan konversi ke WIB
-            dt = parse_and_convert_timestamp(entry['timestamp'], to_wib=True)
+            # Parse ke WIB
+            dt = parse_timestamp_to_wib(entry['timestamp'])
             
             df_data.append({
                 'date': dt.date(),
@@ -171,8 +133,7 @@ def render_search_trends(history):
     
     df = pd.DataFrame(df_data)
     
-    
-    # Daily trends - HANYA TANGGAL, TANPA JAM
+    # Daily trends
     daily_counts = df.groupby('date').size().reset_index(name='count')
     
     col1, col2 = st.columns(2)
@@ -197,13 +158,13 @@ def render_search_trends(history):
     with col2:
         st.markdown("#### 🕐 Pencarian Terbaru")
         
-        # Tabel pencarian terbaru
-        recent_searches = history[-10:][::-1]  # Ambil 10 terbaru
+        # Tabel pencarian terbaru - tampilkan dalam WIB
+        recent_searches = history[-10:][::-1]
         table_data = []
         for entry in recent_searches:
-            dt = datetime.fromisoformat(entry['timestamp'])
+            dt = parse_timestamp_to_wib(entry['timestamp'])
             table_data.append({
-                'timestamp': dt.strftime('%d/%m/%Y %H:%M:%S'),
+                'timestamp': format_datetime_for_display(dt, 'full'),
                 'query': entry['query'],
                 'hasil': entry.get('num_results', 0),
                 'waktu_ms': f"{entry.get('search_time', 0)*1000:.2f}"
@@ -214,7 +175,7 @@ def render_search_trends(history):
             st.dataframe(
                 table_df,
                 column_config={
-                    'timestamp': 'Timestamp',
+                    'timestamp': 'Waktu (WIB)',
                     'query': 'Query',
                     'hasil': 'Hasil',
                     'waktu_ms': 'Waktu (ms)'
@@ -225,8 +186,7 @@ def render_search_trends(history):
         else:
             st.info("Belum ada data pencarian")
 
-
-def render_popular_queries(stats, history): 
+def render_popular_queries(stats):
     """Render popular queries"""
     if not stats['top_queries']:
         st.info("Belum ada data query populer")
@@ -786,26 +746,6 @@ def create_analytics_pdf(stats):
 # UPDATE bagian main() untuk export
 def main():
     render_analytics_header()
-    # Inject timezone detector JavaScript
-    inject_timezone_detector()
-    
-    # Display timezone info for debugging
-    time_info = get_browser_time_info()
-    
-    # Optional: Show debug info in sidebar
-    with st.sidebar:
-        if st.checkbox("Show Timezone Info", False):
-            st.write("**Timezone Detection:**")
-            st.write(f"Detected: {time_info.get('detected', False)}")
-            st.write(f"Timezone: {time_info.get('timezone', 'N/A')}")
-            st.write(f"Offset: {time_info.get('offset', 'N/A')} minutes")
-            st.write(f"Server Time: {datetime.now().strftime('%H:%M:%S')}")
-            
-            if time_info.get('detected'):
-                user_time = get_user_local_time()
-                st.write(f"Your Local Time: {user_time.strftime('%H:%M:%S')}")
-    
-    render_analytics_header()
     
     # Load data
     history = load_search_history()
@@ -844,7 +784,7 @@ def main():
             st.code(f"""
                 Search History: {len(history)} entries
                 Favorites: {len(load_favorites())} items
-                Last Update: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+                Last Update: {get_current_wib_datetime().strftime('%Y-%m-%d %H:%M')}
             """)
         
         # Export data - SINGLE CLICK PDF
