@@ -4,7 +4,7 @@ Utility functions for the Search Engine
 
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any
 import hashlib
 
@@ -69,7 +69,13 @@ def get_search_stats(history: List[Dict[str, Any]]) -> Dict[str, Any]:
 def format_timestamp(iso_timestamp: str) -> str:
     """Format ISO timestamp to readable format"""
     try:
+        # Parse timestamp
         dt = datetime.fromisoformat(iso_timestamp)
+        
+        # Remove any timezone info
+        if dt.tzinfo is not None:
+            dt = dt.replace(tzinfo=None)
+        
         now = datetime.now()
         
         # If today
@@ -77,7 +83,7 @@ def format_timestamp(iso_timestamp: str) -> str:
             return f"Hari ini {dt.strftime('%H:%M')}"
         
         # If yesterday
-        yesterday = now.date().replace(day=now.day-1)
+        yesterday = now.date() - timedelta(days=1)
         if dt.date() == yesterday:
             return f"Kemarin {dt.strftime('%H:%M')}"
         
@@ -86,8 +92,13 @@ def format_timestamp(iso_timestamp: str) -> str:
             return dt.strftime("%d %b %H:%M")
         
         return dt.strftime("%d %b %Y")
-    except:
+    except Exception as e:
+        print(f"Error formatting timestamp: {e}")
         return iso_timestamp
+
+def get_current_time_for_display() -> datetime:
+    """Get current time for display (uses server time as local time)"""
+    return datetime.now()
 
 
 def generate_doc_id(title: str, author: str) -> str:
