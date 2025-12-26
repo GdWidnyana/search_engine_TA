@@ -11,8 +11,8 @@ from pathlib import Path
 from datetime import datetime
 
 # Add scripts directory to path
-SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "scripts"
-sys.path.insert(0, str(SCRIPTS_DIR))
+# SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "scripts"
+# sys.path.insert(0, str(SCRIPTS_DIR))
 
 # UPDATED: Import ImprovedDictionaryBM25Ranker with better spelling correction
 from bm25_with_dictionary_improved import ImprovedDictionaryBM25Ranker
