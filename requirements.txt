@@ -8,3 +8,4 @@ nltk==3.9.2
 Sastrawi==1.0.1
 openpyxl==3.1.5
 numpy==2.0.2
+pytz==2025.2
