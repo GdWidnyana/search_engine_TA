@@ -176,7 +176,112 @@ def export_to_csv(data: List[Dict], filename: str) -> str:
     
     return str(output_path)
 
+from datetime import datetime, timedelta
 
+def get_user_local_time() -> datetime:
+    """
+    Get user's local time using browser detection or server time as fallback
+    This should be called after injecting the timezone detector
+    """
+    try:
+        # Try to get from session state (set by JavaScript)
+        if 'browser_time_info' in st.session_state:
+            info = st.session_state.browser_time_info
+            if info.get('detected', False):
+                # Calculate local time from offset
+                server_time = datetime.now()
+                offset_minutes = info.get('offset', -420)  # Default to WIB
+                user_time = server_time - timedelta(minutes=offset_minutes)
+                return user_time
+    except:
+        pass
+    
+    # Fallback: server time (assume WIB for Indonesia users)
+    return datetime.now()
+
+def add_search_to_history(query: str, num_results: int, search_time: float):
+    """Add search to history with proper timestamp handling"""
+    history = load_search_history()
+    
+    # Get user's local time if possible
+    try:
+        if 'browser_time_info' in st.session_state:
+            info = st.session_state.browser_time_info
+            if info.get('detected', False):
+                # Use calculated user time
+                user_time = get_user_local_time()
+                timestamp = user_time.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                # Use server time with WIB assumption
+                timestamp = (datetime.now() + timedelta(hours=7)).strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            # Fallback: assume WIB (UTC+7)
+            timestamp = (datetime.now() + timedelta(hours=7)).strftime('%Y-%m-%d %H:%M:%S')
+    except:
+        # Ultimate fallback
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    
+    history.insert(0, {
+        'timestamp': timestamp,
+        'query': query,
+        'num_results': num_results,
+        'search_time': search_time
+    })
+    
+    if len(history) > 100:
+        history = history[:100]
+    
+    save_search_history(history)
+    return True
+
+def save_favorite_document(doc_data: dict):
+    """Save document to favorites with proper timestamp"""
+    favorites = load_favorites()
+    
+    # Cek jika sudah ada
+    for fav in favorites:
+        if fav.get('doc_id') == doc_data.get('doc_id'):
+            return False
+    
+    # Get user's local time for saved_at
+    try:
+        if 'browser_time_info' in st.session_state:
+            info = st.session_state.browser_time_info
+            if info.get('detected', False):
+                user_time = get_user_local_time()
+                saved_at = user_time.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                saved_at = (datetime.now() + timedelta(hours=7)).strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            saved_at = (datetime.now() + timedelta(hours=7)).strftime('%Y-%m-%d %H:%M:%S')
+    except:
+        saved_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    
+    doc_data['saved_at'] = saved_at
+    favorites.append(doc_data)
+    
+    save_favorites_func(favorites)
+    return True
+
+def parse_timestamp(timestamp_str: str) -> datetime:
+    """
+    Parse timestamp string with multiple format support
+    """
+    try:
+        # Try format: '2025-12-26 17:39:39'
+        return datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
+    except:
+        try:
+            # Try ISO format with Z
+            return datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+        except:
+            try:
+                # Try ISO format without timezone
+                return datetime.fromisoformat(timestamp_str)
+            except:
+                # Ultimate fallback
+                return datetime.now()
+                
 def validate_email(email: str) -> bool:
     """Simple email validation"""
     import re
