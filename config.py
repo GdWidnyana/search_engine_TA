@@ -21,7 +21,7 @@ PAGE_CONFIG = {
     "menu_items": {
         'Get Help': None,
         'Report a bug': None,
-        'About': "Skripsi Search Engine v2.0 - Sistem Pencarian dengan Dictionary Optimization"
+        'About': "Skripsi Search Engine v1.0 - Sistem Pencarian dengan BM25"
     }
 }
 
@@ -261,8 +261,7 @@ SEARCH_TIPS = [
     "Gabungkan beberapa kata untuk pencarian lebih detail (contoh: 'machine learning klasifikasi')",
     "Sistem otomatis memperbaiki typo dan kata yang salah eja",
     "Query expansion otomatis menambahkan sinonim untuk hasil lebih lengkap",
-    "Mode Advanced menampilkan score, domain, dan specificity untuk analisis mendalam",
-    "✨ NEW: Menggunakan Dictionary Optimization untuk pencarian lebih cepat!"
+    "Mode Advanced menampilkan score, domain, dan specificity untuk analisis mendalam"
 ]
 
 # Example queries
