@@ -151,7 +151,15 @@ def render_favorite_card(fav, index):
         st.markdown(f"**Doc ID:** {fav['doc_id']}")
     with col2:
         if fav.get('saved_at'):
-            saved_date = datetime.fromisoformat(fav['saved_at']).strftime('%d/%m/%Y %H:%M')
+            try:
+                # Parse sebagai string biasa
+                saved_dt = datetime.strptime(fav['saved_at'], '%Y-%m-%d %H:%M:%S')
+                saved_date = saved_dt.strftime('%d/%m/%Y %H:%M')
+            except:
+                # Fallback untuk format lama
+                saved_dt = datetime.fromisoformat(fav['saved_at'].replace('Z', ''))
+                saved_date = saved_dt.strftime('%d/%m/%Y %H:%M')
+            
             st.markdown(f"**Disimpan:** {saved_date}")
     with col3:
         if fav.get('domain'):
