@@ -8,7 +8,7 @@ from typing import Dict, Optional
 import streamlit as st
 
 # Path to database_skripsi.json
-CORPUS_PATH = Path(__file__).parent.parent / "data" / "database_skripsi.json"
+CORPUS_PATH = Path(__file__).parent / "data" / "database_skripsi.json"
 
 @st.cache_data(ttl=3600)  # Cache selama 1 jam
 def load_corpus_data():
