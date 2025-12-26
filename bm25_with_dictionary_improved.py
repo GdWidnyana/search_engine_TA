@@ -9,10 +9,10 @@ import math
 from pathlib import Path
 from collections import defaultdict
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-BLOCKS_PATH = BASE_DIR / "streamlit_ir/data/blocks.json"
-FRONTCODED_PATH = BASE_DIR / "streamlit_ir/data/frontcoded.json"
-INDEX_PATH = BASE_DIR / "streamlit_ir/data/index.json"
+BASE_DIR = Path(__file__).resolve().parent
+BLOCKS_PATH = BASE_DIR / "data/blocks.json"
+FRONTCODED_PATH = BASE_DIR / "data/frontcoded.json"
+INDEX_PATH = BASE_DIR / "data/index.json"
 
 # BM25 Parameters
 K1 = 1.6
