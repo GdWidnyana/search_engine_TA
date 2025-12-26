@@ -7,6 +7,7 @@ UPDATED: Using Dictionary BM25 (Blocks + Front Coding)
 import streamlit as st
 import sys
 import time
+import pytz
 from pathlib import Path
 from datetime import datetime
 
@@ -114,6 +115,28 @@ def render_search_options():
     """Render search options sidebar"""
     with st.sidebar:
         st.markdown("### ⚙️ Pengaturan Pencarian")
+        
+        # Timezone selector - NEW!
+        st.markdown("#### ⏰ Timezone")
+        if 'user_timezone' not in st.session_state:
+            st.session_state.user_timezone = 'Asia/Makassar'  # Default WITA
+        
+        tz_options = {
+            'Asia/Jakarta': 'WIB (GMT+7)',
+            'Asia/Makassar': 'WITA (GMT+8)',
+            'Asia/Jayapura': 'WIT (GMT+9)'
+        }
+        
+        selected_tz = st.selectbox(
+            "Pilih timezone Anda",
+            options=list(tz_options.keys()),
+            format_func=lambda x: tz_options[x],
+            index=1,  # Default to WITA
+            help="Timezone untuk menampilkan waktu yang akurat"
+        )
+        st.session_state.user_timezone = selected_tz
+        
+        st.markdown("---")
         
         # Number of results
         top_k = st.number_input(
@@ -229,14 +252,22 @@ def render_result_card(result, index, advanced_mode):
 
 
 def save_to_favorites(result):
-    """Save result to favorites"""
+    """Save result to favorites with user's timezone"""
     from pages_utils import load_favorites, save_favorites_func
+    import pytz
     
     favorites = load_favorites()
     
     # Check if already in favorites
     if result['doc_id'] not in [f['doc_id'] for f in favorites]:
-        result['saved_at'] = datetime.now().isoformat()
+        # Save with user's timezone
+        try:
+            user_tz = pytz.timezone(st.session_state.get('user_timezone', 'Asia/Makassar'))
+            timestamp = datetime.now(user_tz).isoformat()
+        except:
+            timestamp = datetime.now().isoformat()
+        
+        result['saved_at'] = timestamp
         favorites.append(result)
         save_favorites_func(favorites)
 
@@ -377,10 +408,17 @@ def main():
                 
                 st.session_state.current_results = results
                 
-                # Save to history
+                # Save to history with user's timezone
+                try:
+                    import pytz
+                    user_tz = pytz.timezone(st.session_state.get('user_timezone', 'Asia/Makassar'))
+                    timestamp = datetime.now(user_tz).isoformat()
+                except:
+                    timestamp = datetime.now().isoformat()
+                
                 st.session_state.search_history.append({
                     'query': query,
-                    'timestamp': datetime.now().isoformat(),
+                    'timestamp': timestamp,
                     'num_results': len(results),
                     'search_time': search_time
                 })
