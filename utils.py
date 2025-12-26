@@ -66,59 +66,31 @@ def get_search_stats(history: List[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
-def format_timestamp(iso_timestamp: str, use_local_tz: bool = True) -> str:
+def format_timestamp(iso_timestamp: str) -> str:
     """
-    Format ISO timestamp to readable format with timezone support
+    Format ISO timestamp to readable format
+    ASSUMES TIMESTAMP IS ALREADY IN LOCAL TIMEZONE (no conversion)
     
     Args:
-        iso_timestamp: ISO format timestamp string
-        use_local_tz: If True, convert to local timezone (default: True)
+        iso_timestamp: ISO format timestamp string (local time)
     
     Returns:
         Formatted timestamp string
     """
     try:
-        # Import timezone utilities
-        try:
-            from timezone_utils import convert_utc_to_local, get_user_timezone
-            import pytz
-            has_tz_utils = True
-        except ImportError:
-            has_tz_utils = False
+        # Parse timestamp (remove microseconds and Z if present)
+        clean_timestamp = iso_timestamp.replace('Z', '').split('.')[0]
+        dt = datetime.fromisoformat(clean_timestamp)
         
-        # Parse timestamp
-        dt = datetime.fromisoformat(iso_timestamp)
-        
-        # Convert to local timezone if utilities available
-        if use_local_tz and has_tz_utils:
-            try:
-                # Make sure dt is timezone aware (UTC)
-                if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=pytz.UTC)
-                
-                # Convert to user's timezone
-                user_tz = get_user_timezone()
-                dt = dt.astimezone(user_tz)
-            except Exception as e:
-                print(f"Timezone conversion error: {e}")
-                # Continue with UTC if conversion fails
-                pass
-        else:
-            # Remove timezone info if not converting
-            if dt.tzinfo is not None:
-                dt = dt.replace(tzinfo=None)
-        
-        # Remove timezone info for comparison
-        dt_naive = dt.replace(tzinfo=None) if dt.tzinfo else dt
         now = datetime.now()
         
         # If today
-        if dt_naive.date() == now.date():
+        if dt.date() == now.date():
             return f"Hari ini {dt.strftime('%H:%M')}"
         
         # If yesterday
         yesterday = now.date() - timedelta(days=1)
-        if dt_naive.date() == yesterday:
+        if dt.date() == yesterday:
             return f"Kemarin {dt.strftime('%H:%M')}"
         
         # Within this year
@@ -131,49 +103,50 @@ def format_timestamp(iso_timestamp: str, use_local_tz: bool = True) -> str:
         return iso_timestamp
 
 
-def format_datetime_full(iso_timestamp: str, use_local_tz: bool = True) -> str:
+def format_datetime_full(iso_timestamp: str) -> str:
     """
-    Format ISO timestamp to full datetime format with timezone support
+    Format ISO timestamp to full datetime format
     Format: DD/MM/YYYY HH:MM:SS
+    ASSUMES TIMESTAMP IS ALREADY IN LOCAL TIMEZONE
     
     Args:
-        iso_timestamp: ISO format timestamp string
-        use_local_tz: If True, convert to local timezone (default: True)
+        iso_timestamp: ISO format timestamp string (local time)
     
     Returns:
         Formatted datetime string
     """
     try:
-        # Import timezone utilities
-        try:
-            from timezone_utils import convert_utc_to_local, get_user_timezone
-            import pytz
-            has_tz_utils = True
-        except ImportError:
-            has_tz_utils = False
-        
-        # Parse timestamp
-        dt = datetime.fromisoformat(iso_timestamp)
-        
-        # Convert to local timezone if utilities available
-        if use_local_tz and has_tz_utils:
-            try:
-                # Make sure dt is timezone aware (UTC)
-                if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=pytz.UTC)
-                
-                # Convert to user's timezone
-                user_tz = get_user_timezone()
-                dt = dt.astimezone(user_tz)
-            except Exception as e:
-                print(f"Timezone conversion error: {e}")
-        else:
-            # Remove timezone info if not converting
-            if dt.tzinfo is not None:
-                dt = dt.replace(tzinfo=None)
+        # Parse timestamp (remove microseconds and Z if present)
+        clean_timestamp = iso_timestamp.replace('Z', '').split('.')[0]
+        dt = datetime.fromisoformat(clean_timestamp)
         
         # Format as DD/MM/YYYY HH:MM:SS
         return dt.strftime("%d/%m/%Y %H:%M:%S")
+        
+    except Exception as e:
+        print(f"Error formatting datetime: {e}")
+        return iso_timestamp
+
+
+def format_datetime_short(iso_timestamp: str) -> str:
+    """
+    Format ISO timestamp to short datetime format
+    Format: DD/MM/YYYY HH:MM
+    ASSUMES TIMESTAMP IS ALREADY IN LOCAL TIMEZONE
+    
+    Args:
+        iso_timestamp: ISO format timestamp string (local time)
+    
+    Returns:
+        Formatted datetime string
+    """
+    try:
+        # Parse timestamp (remove microseconds and Z if present)
+        clean_timestamp = iso_timestamp.replace('Z', '').split('.')[0]
+        dt = datetime.fromisoformat(clean_timestamp)
+        
+        # Format as DD/MM/YYYY HH:MM
+        return dt.strftime("%d/%m/%Y %H:%M")
         
     except Exception as e:
         print(f"Error formatting datetime: {e}")
