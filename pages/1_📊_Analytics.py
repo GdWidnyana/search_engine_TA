@@ -146,24 +146,44 @@ def render_search_trends(history):
         st.info("Belum ada data untuk tren")
         return
     
-    # Create DataFrame - PARSE sebagai string biasa
+    # Get browser time info for adjustment
+    time_info = get_browser_time_info()
+    offset_minutes = time_info.get('offset', -420)  # Default to WIB
+    
+    # Create DataFrame with timezone adjustment
     df_data = []
     for entry in history:
-        # Parse timestamp tanpa timezone
         try:
-            # Format: '2025-12-26 17:39:39'
-            dt = datetime.strptime(entry['timestamp'], '%Y-%m-%d %H:%M:%S')
-        except:
-            # Fallback untuk format lama
-            dt = datetime.fromisoformat(entry['timestamp'].replace('Z', ''))
-        
-        df_data.append({
-            'date': dt.date(),
-            'hour': dt.hour,
-            'query': entry['query'],
-            'results': entry.get('num_results', 0),
-            'search_time': entry.get('search_time', 0)
-        })
+            # Parse the timestamp
+            timestamp_str = entry['timestamp']
+            
+            # Parse based on format
+            if 'T' in timestamp_str:  # ISO format
+                dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+            else:  # Simple format
+                dt = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
+            
+            # Adjust to user's local time if detected
+            if time_info.get('detected', False):
+                dt_adjusted = dt - timedelta(minutes=offset_minutes)
+            else:
+                dt_adjusted = dt
+            
+            df_data.append({
+                'date': dt_adjusted.date(),
+                'hour': dt_adjusted.hour,
+                'query': entry['query'],
+                'results': entry.get('num_results', 0),
+                'search_time': entry.get('search_time', 0),
+                'original_time': dt
+            })
+        except Exception as e:
+            print(f"Error parsing timestamp {entry.get('timestamp')}: {e}")
+            continue
+    
+    if not df_data:
+        st.warning("Tidak dapat memproses data timestamp")
+        return
     
     df = pd.DataFrame(df_data)
     
