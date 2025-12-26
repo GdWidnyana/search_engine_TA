@@ -242,7 +242,7 @@ def render_popular_queries(stats):
             st.write(f"UTC: {dt_utc}")
             st.write(f"WIB: {dt_wib}")
             st.write(f"Server time now: {datetime.now()}")
-            st.write(f"UTC time now: {datetime.now(timezone.utc)}")return
+            st.write(f"UTC time now: {datetime.now(timezone.utc)}")
     
     col1, col2 = st.columns(2)
     
