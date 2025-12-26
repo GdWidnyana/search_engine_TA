@@ -180,32 +180,19 @@ def create_favorites_pdf(favorites):
         pdf = FPDF()
         pdf.set_auto_page_break(auto=True, margin=15)
         
-        # PERBAIKAN: Tambahkan font Unicode support
-        pdf.add_font('Arial', '', r'C:\Windows\Fonts\arial.ttf', uni=True)
-        pdf.add_font('Arial', 'B', r'C:\Windows\Fonts\arialbd.ttf', uni=True)
-        
-        # Atau gunakan DejaVu untuk support Unicode yang lebih baik
-        try:
-            pdf.add_font('DejaVu', '', 'DejaVuSans.ttf', uni=True)
-            pdf.add_font('DejaVu', 'B', 'DejaVuSans-Bold.ttf', uni=True)
-            font_name = 'DejaVu'
-        except:
-            font_name = 'Arial'
-        
         for fav in favorites:
             pdf.add_page()
             
-            # Add document header - PERBAIKAN: Hapus emoji dari PDF
-            pdf.set_font(font_name, 'B', 16)
+            # Use built-in fonts (no Unicode, ASCII only)
+            pdf.set_font('Arial', 'B', 16)
             pdf.cell(0, 10, 'Favorites Report', 0, 1, 'C')
             pdf.ln(5)
             
             # Document info
-            pdf.set_font(font_name, 'B', 12)
+            pdf.set_font('Arial', 'B', 12)
             
-            # PERBAIKAN: Bersihkan title dari karakter Unicode yang bermasalah
-            title = fav.get('title', '')
-            # Hapus atau ganti karakter Unicode yang bermasalah
+            # Clean title - remove non-ASCII characters
+            title = fav.get('title', 'Untitled Document')
             title = title.encode('ascii', 'ignore').decode('ascii')[:100]
             if not title:
                 title = "Untitled Document"
@@ -213,9 +200,9 @@ def create_favorites_pdf(favorites):
             pdf.cell(0, 10, title, 0, 1)
             pdf.ln(2)
             
-            pdf.set_font(font_name, '', 10)
+            pdf.set_font('Arial', '', 10)
             
-            # PERBAIKAN: Bersihkan teks sebelum ditambahkan ke PDF
+            # Clean text before adding to PDF
             doc_id = fav.get('doc_id', '').encode('ascii', 'ignore').decode('ascii')
             authors = fav.get('authors', '').encode('ascii', 'ignore').decode('ascii')[:100]
             domain = fav.get('domain', '').upper().encode('ascii', 'ignore').decode('ascii')
@@ -224,11 +211,10 @@ def create_favorites_pdf(favorites):
             pdf.cell(0, 8, f"Penulis: {authors}", 0, 1)
             pdf.cell(0, 8, f"Domain: {domain}", 0, 1)
             
-            # Format saved_at dengan error handling
+            # Format saved_at
             saved_at = fav.get('saved_at', '')
             if saved_at:
                 try:
-                    from datetime import datetime
                     saved_date = datetime.fromisoformat(saved_at).strftime('%d/%m/%Y %H:%M')
                     pdf.cell(0, 8, f"Disimpan: {saved_date}", 0, 1)
                 except:
@@ -238,53 +224,55 @@ def create_favorites_pdf(favorites):
                 
             pdf.ln(5)
             
-            # Keywords - PERBAIKAN: Bersihkan keywords
+            # Keywords - Clean
             if fav.get('keywords'):
-                pdf.set_font(font_name, 'B', 10)
+                pdf.set_font('Arial', 'B', 10)
                 pdf.cell(0, 8, "Keywords:", 0, 1)
-                pdf.set_font(font_name, '', 10)
+                pdf.set_font('Arial', '', 10)
+                
                 from utils import parse_keywords
                 keywords = parse_keywords(fav.get('keywords', ''))
                 
-                # Bersihkan setiap keyword
+                # Clean keywords
                 clean_keywords = []
                 for kw in keywords:
                     clean_kw = kw.encode('ascii', 'ignore').decode('ascii')
                     if clean_kw:
-                        clean_keywords.append(clean_kw[:50])  # Batasi panjang
+                        clean_keywords.append(clean_kw[:50])
                 
                 if clean_keywords:
-                    keywords_text = " | ".join(clean_keywords)
+                    keywords_text = " | ".join(clean_keywords[:20])  # Max 20 keywords
                     pdf.multi_cell(0, 8, keywords_text)
                 else:
                     pdf.cell(0, 8, "No keywords available", 0, 1)
                     
                 pdf.ln(3)
             
-            # Abstract - PERBAIKAN: Bersihkan abstract
+            # Abstract - Clean
             if fav.get('abstract'):
-                pdf.set_font(font_name, 'B', 10)
+                pdf.set_font('Arial', 'B', 10)
                 pdf.cell(0, 8, "Abstract:", 0, 1)
-                pdf.set_font(font_name, '', 10)
+                pdf.set_font('Arial', '', 10)
+                
                 abstract = fav.get('abstract', '')
-                # Bersihkan abstract
                 clean_abstract = abstract.encode('ascii', 'ignore').decode('ascii')[:500]
                 if len(abstract) > 500:
                     clean_abstract += "..."
+                    
                 pdf.multi_cell(0, 8, clean_abstract)
                 pdf.ln(5)
             
             # Links
-            pdf.set_font(font_name, 'B', 10)
+            pdf.set_font('Arial', 'B', 10)
             pdf.cell(0, 8, "Links:", 0, 1)
-            pdf.set_font(font_name, '', 10)
+            pdf.set_font('Arial', '', 10)
             
             if fav.get('link_detail'):
                 link = fav.get('link_detail', '')[:80]
-                pdf.cell(0, 8, f"Detail: {link}...", 0, 1)
+                pdf.cell(0, 8, f"Detail: {link}", 0, 1)
             if fav.get('link_pdf'):
                 link = fav.get('link_pdf', '')[:80]
-                pdf.cell(0, 8, f"PDF: {link}...", 0, 1)
+                pdf.cell(0, 8, f"PDF: {link}", 0, 1)
             
             pdf.ln(10)
             pdf.line(10, pdf.get_y(), 200, pdf.get_y())
@@ -292,17 +280,16 @@ def create_favorites_pdf(favorites):
         
         # Add summary page
         pdf.add_page()
-        pdf.set_font(font_name, 'B', 16)
+        pdf.set_font('Arial', 'B', 16)
         pdf.cell(0, 10, 'Summary', 0, 1, 'C')
         pdf.ln(10)
         
-        pdf.set_font(font_name, '', 12)
+        pdf.set_font('Arial', '', 12)
         pdf.cell(0, 10, f"Total Documents: {len(favorites)}", 0, 1)
         pdf.cell(0, 10, f"Generated: {datetime.now().strftime('%d/%m/%Y %H:%M')}", 0, 1)
-        pdf.ln(10)
         
         # Save to temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf', mode='wb') as tmp_file:
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
             pdf.output(tmp_file.name)
             return tmp_file.name
         
