@@ -7,6 +7,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
+from timezone_utils import inject_timezone_detector, get_browser_time_info, adjust_datetime_to_local
 import sys
 from pathlib import Path
 
@@ -764,6 +765,26 @@ def create_analytics_pdf(stats):
 
 # UPDATE bagian main() untuk export
 def main():
+    render_analytics_header()
+    # Inject timezone detector JavaScript
+    inject_timezone_detector()
+    
+    # Display timezone info for debugging
+    time_info = get_browser_time_info()
+    
+    # Optional: Show debug info in sidebar
+    with st.sidebar:
+        if st.checkbox("Show Timezone Info", False):
+            st.write("**Timezone Detection:**")
+            st.write(f"Detected: {time_info.get('detected', False)}")
+            st.write(f"Timezone: {time_info.get('timezone', 'N/A')}")
+            st.write(f"Offset: {time_info.get('offset', 'N/A')} minutes")
+            st.write(f"Server Time: {datetime.now().strftime('%H:%M:%S')}")
+            
+            if time_info.get('detected'):
+                user_time = get_user_local_time()
+                st.write(f"Your Local Time: {user_time.strftime('%H:%M:%S')}")
+    
     render_analytics_header()
     
     # Load data
