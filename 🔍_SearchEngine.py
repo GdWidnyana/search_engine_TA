@@ -11,14 +11,6 @@ import pytz
 from pathlib import Path
 from datetime import datetime
 
-import reportlab
-from io import BytesIO
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
-from reportlab.lib import colors
-
 # Add scripts directory to path
 # SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "scripts"
 # sys.path.insert(0, str(SCRIPTS_DIR))
@@ -456,12 +448,18 @@ def main():
                 </div>
             """, unsafe_allow_html=True)
         
-        # Export buttons - PDF and Excel
-        col1, col2, col3, col4 = st.columns([1, 1, 1, 3])
+        # Export buttons - PDF, Excel, and Statistics (equal width)
+        col1, col2, col3, col4 = st.columns([1, 1, 1, 2])
         
         with col1:
             # PDF Export
             def create_pdf():
+                from io import BytesIO
+                from reportlab.lib.pagesizes import A4
+                from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                from reportlab.lib.units import inch
+                from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
+                from reportlab.lib import colors
                 
                 buffer = BytesIO()
                 doc = SimpleDocTemplate(buffer, pagesize=A4, 
