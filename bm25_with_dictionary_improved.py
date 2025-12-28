@@ -356,6 +356,7 @@ class ImprovedDictionaryBM25Ranker:
     def correct_spelling(self, word):
         """
         IMPROVED spelling correction dengan multi-stage approach
+        AGGRESSIVE MODE for common patterns
         """
         # Stage 1: Check if word already correct
         if self.find_term_in_dictionary(word):
@@ -366,6 +367,24 @@ class ImprovedDictionaryBM25Ranker:
             corrected = self.common_typos[word]
             if self.find_term_in_dictionary(corrected):
                 return corrected, False, 1
+        
+        # Stage 2.5: AGGRESSIVE - Check if word is very close to common patterns
+        # This handles cases where common_typos might not be loaded
+        aggressive_patterns = {
+            'analisi': 'analisis',
+            'analiss': 'analisis',
+            'analis': 'analisis',
+            'analisys': 'analisis',
+            'analisos': 'analisis',
+            'sentime': 'sentimen',
+            'sentmn': 'sentimen',
+            'sentimn': 'sentimen',
+            'sentimnt': 'sentimen',
+        }
+        
+        if word in aggressive_patterns:
+            corrected = aggressive_patterns[word]
+            return corrected, False, 1
         
         # Stage 3: Prefix matching (for incomplete words)
         if len(word) >= 3:
@@ -428,7 +447,7 @@ class ImprovedDictionaryBM25Ranker:
                 expanded.update(list(self.synonyms[term])[:2])
         return list(expanded)
     
-    def preprocess_query(self, query):
+    def preprocess_query(self, query, verbose=False):
         """
         IMPROVED query preprocessing with compound word splitting
         """
@@ -438,18 +457,33 @@ class ImprovedDictionaryBM25Ranker:
         if not terms:
             return [], []
         
+        if verbose:
+            print(f"\n=== Query Preprocessing ===")
+            print(f"Original query: '{query}'")
+            print(f"Initial terms: {terms}")
+        
         # Try to split compound words first
         expanded_terms = []
         for term in terms:
             # Try splitting if word is long and has no spaces
             if len(term) >= 8:
+                if verbose:
+                    print(f"\nTrying to split compound word: '{term}'")
                 split_result = self.try_split_compound_word(term)
                 if split_result:
+                    if verbose:
+                        print(f"  ✓ Split successful: {split_result}")
                     expanded_terms.extend(split_result)
                     continue
+                else:
+                    if verbose:
+                        print(f"  ✗ Split failed, keeping as-is")
             expanded_terms.append(term)
         
         terms = expanded_terms
+        
+        if verbose:
+            print(f"\nAfter splitting: {terms}")
         
         # Spelling correction with confidence
         corrected_terms = []
@@ -457,19 +491,38 @@ class ImprovedDictionaryBM25Ranker:
         correction_confidence = []
         
         for term in terms:
+            if verbose:
+                print(f"\nCorrecting '{term}'...")
             corrected, was_correct, distance = self.correct_spelling(term)
+            if verbose:
+                print(f"  → '{corrected}' (exact={was_correct}, dist={distance})")
             corrected_terms.append(corrected)
             
             if not was_correct:
                 corrections.append(f"{term}→{corrected}")
                 correction_confidence.append(distance)
         
+        if verbose:
+            print(f"\nCorrected terms: {corrected_terms}")
+            print(f"Corrections made: {corrections}")
+            print(f"Confidence scores: {correction_confidence}")
+        
         # Query expansion (only if corrections look good)
         if all(conf < 3 for conf in correction_confidence):
+            if verbose:
+                print(f"\n✓ Corrections look good (all < 3), expanding query...")
             expanded_terms = self.expand_query(corrected_terms)
+            if verbose:
+                print(f"  Expanded to: {expanded_terms}")
         else:
             # If corrections are uncertain, don't expand
+            if verbose:
+                print(f"\n✗ Corrections uncertain, not expanding")
             expanded_terms = corrected_terms
+        
+        if verbose:
+            print(f"\nFinal query terms: {expanded_terms}")
+            print("=" * 50)
         
         return expanded_terms, corrections
     
@@ -685,7 +738,7 @@ class ImprovedDictionaryBM25Ranker:
     def search(self, query, top_k=10, verbose=False):
         """Main search function with improved correction and semantic filtering"""
         # Preprocess
-        query_terms, corrections = self.preprocess_query(query)
+        query_terms, corrections = self.preprocess_query(query, verbose=verbose)
         
         if not query_terms:
             return []
