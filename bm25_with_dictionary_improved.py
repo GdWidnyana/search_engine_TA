@@ -274,34 +274,65 @@ class ImprovedDictionaryBM25Ranker:
     def try_split_compound_word(self, word):
         """
         Try to split compound words like 'analisisentime' → ['analisis', 'sentimen']
-        Uses dynamic programming to find best split
+        Uses dynamic programming with aggressive matching + fallback
         """
         if len(word) < 8:  # Too short to be compound
             return None
         
         n = len(word)
-        # dp[i] = (is_valid, split_words)
-        dp = [(False, [])] * (n + 1)
-        dp[0] = (True, [])
+        # dp[i] = (is_valid, split_words, total_distance)
+        dp = [(False, [], 999)] * (n + 1)
+        dp[0] = (True, [], 0)
         
         for i in range(1, n + 1):
             # Try all possible last words ending at position i
-            for j in range(max(0, i - 15), i):  # Max word length 15
+            for j in range(max(0, i - 12), i):  # Max word length 12
                 prefix_word = word[j:i]
                 
+                # Skip if too short
+                if len(prefix_word) < 3:
+                    continue
+                
                 # Check if this word exists (with correction)
-                if len(prefix_word) >= 3:
-                    corrected, is_exact, dist = self.correct_spelling(prefix_word)
+                corrected, was_correct, dist = self.correct_spelling(prefix_word)
+                
+                # Be more lenient - accept if correction distance is reasonable
+                if dist <= 3 and dp[j][0]:  # Previous part must be valid
+                    new_words = dp[j][1] + [corrected]
+                    new_total_dist = dp[j][2] + dist
                     
-                    # Only accept if correction is reasonable
-                    if dist <= 2 and dp[j][0]:  # Previous part must be valid
-                        new_words = dp[j][1] + [corrected]
-                        # Prefer splits with fewer words
-                        if not dp[i][0] or len(new_words) < len(dp[i][1]):
-                            dp[i] = (True, new_words)
+                    # Prefer splits with:
+                    # 1. Fewer total edits
+                    # 2. Fewer words (if edits are equal)
+                    if not dp[i][0] or \
+                       new_total_dist < dp[i][2] or \
+                       (new_total_dist == dp[i][2] and len(new_words) < len(dp[i][1])):
+                        dp[i] = (True, new_words, new_total_dist)
         
-        if dp[n][0] and len(dp[n][1]) >= 2:  # At least 2 words
-            return dp[n][1]
+        # Accept if we found a valid split with 2+ words
+        if dp[n][0] and len(dp[n][1]) >= 2:
+            # Additional check: total correction distance should be reasonable
+            if dp[n][2] <= len(word) // 3:  # Max 1 error per 3 chars
+                return dp[n][1]
+        
+        # Fallback: Try simple binary split in the middle
+        # This handles cases like "analisisentime" → "analisi" + "sentime"
+        mid = len(word) // 2
+        for offset in range(-2, 3):  # Try splits around middle
+            split_point = mid + offset
+            if split_point < 3 or split_point > len(word) - 3:
+                continue
+            
+            part1 = word[:split_point]
+            part2 = word[split_point:]
+            
+            # Try to correct both parts
+            corrected1, _, dist1 = self.correct_spelling(part1)
+            corrected2, _, dist2 = self.correct_spelling(part2)
+            
+            # Accept if both parts can be corrected reasonably
+            if dist1 <= 2 and dist2 <= 2:
+                return [corrected1, corrected2]
         
         return None
     
