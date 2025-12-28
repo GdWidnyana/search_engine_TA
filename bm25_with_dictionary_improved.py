@@ -32,12 +32,12 @@ MAX_RESULTS_SPECIFIC = 25
 MAX_RESULTS_MODERATE = 40
 MAX_RESULTS_GENERIC = 55
 
-# Score thresholds
-MIN_SCORE_THRESHOLD = 8.0
+# Score thresholds - LOWERED untuk hindari false negative
+MIN_SCORE_THRESHOLD = 3.0  # Lowered from 8.0 to 3.0
 
-# Term coverage
-MIN_TERM_COVERAGE = 0.65
-IDEAL_TERM_COVERAGE = 0.85
+# Term coverage - RELAXED untuk hindari false negative
+MIN_TERM_COVERAGE = 0.40  # Lowered from 0.65 to 0.40
+IDEAL_TERM_COVERAGE = 0.70  # Lowered from 0.85 to 0.70
 
 # Generic terms
 GENERIC_TERMS = {'dengan', 'untuk', 'pada', 'yang', 'dari', 'dan', 'atau', 'ke', 'oleh'}
@@ -546,7 +546,7 @@ class EnhancedDictionaryBM25Ranker:
         return matches / len(core_terms)
     
     def check_semantic_relevance(self, query_terms, doc_id):
-        """Check semantic relevance"""
+        """Check semantic relevance - RELAXED untuk hindari false negative"""
         core_terms = self.get_core_terms(query_terms)
         if not core_terms:
             return True
@@ -570,7 +570,8 @@ class EnhancedDictionaryBM25Ranker:
                     continue
         
         coverage = matches / len(core_terms)
-        return coverage >= 0.7
+        # RELAXED: 50% coverage (was 70%)
+        return coverage >= 0.5
     
     def compute_bm25_score(self, query_terms, doc_id):
         """Compute BM25 score"""
@@ -638,33 +639,45 @@ class EnhancedDictionaryBM25Ranker:
         return boosted
     
     def filter_results(self, scores, specificity):
-        """Filter results with threshold"""
+        """Filter results with RELAXED threshold"""
         if not scores:
             return {}
         
         score_values = sorted(scores.values(), reverse=True)
         
+        # More results for each category
         if specificity == 'specific':
             max_results = MAX_RESULTS_SPECIFIC
-            percentile = 0.25
+            percentile = 0.30  # More lenient
         elif specificity == 'moderate':
             max_results = MAX_RESULTS_MODERATE
-            percentile = 0.35
+            percentile = 0.40  # More lenient
         else:
             max_results = MAX_RESULTS_GENERIC
-            percentile = 0.45
+            percentile = 0.50  # More lenient
         
-        if len(score_values) > 20:
-            cutoff_idx = max(8, int(len(score_values) * percentile))
-            adaptive_threshold = score_values[cutoff_idx]
+        # Adaptive threshold - MORE RELAXED
+        if len(score_values) > 15:
+            cutoff_idx = max(5, int(len(score_values) * percentile))
+            adaptive_threshold = score_values[min(cutoff_idx, len(score_values)-1)]
         else:
-            adaptive_threshold = MIN_SCORE_THRESHOLD
+            # For small result sets, use lower threshold
+            adaptive_threshold = MIN_SCORE_THRESHOLD * 0.5
         
-        threshold = max(adaptive_threshold, MIN_SCORE_THRESHOLD)
+        # Use the LOWER of the two thresholds
+        threshold = min(adaptive_threshold, MIN_SCORE_THRESHOLD)
         
+        # Apply threshold
         filtered = {doc_id: score for doc_id, score in scores.items()
                    if score >= threshold}
         
+        # If we filtered too much, relax further
+        if len(filtered) < 3 and len(scores) >= 3:
+            # Just take top scores without threshold
+            sorted_items = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+            filtered = dict(sorted_items[:max(max_results, 10)])
+        
+        # Limit results
         if len(filtered) > max_results:
             sorted_items = sorted(filtered.items(), key=lambda x: x[1], reverse=True)
             filtered = dict(sorted_items[:max_results])
@@ -682,9 +695,15 @@ class EnhancedDictionaryBM25Ranker:
         if corrections and verbose:
             print(f"✓ Corrected: {', '.join(corrections)}")
         
+        if verbose:
+            print(f"✓ Query terms: {query_terms}")
+        
         # Analyze
         specificity = self.analyze_query_specificity(query_terms)
         domain, domain_boost = self.detect_query_domain(query_terms)
+        
+        if verbose:
+            print(f"✓ Specificity: {specificity}, Domain: {domain}")
         
         # Collect candidates
         candidate_docs = defaultdict(int)
@@ -694,6 +713,9 @@ class EnhancedDictionaryBM25Ranker:
                 for doc_id in self.index[term].keys():
                     candidate_docs[doc_id] += 1
         
+        if verbose:
+            print(f"✓ Initial candidates: {len(candidate_docs)}")
+        
         # Coverage filter
         core_terms = self.get_core_terms(query_terms)
         min_matches = max(1, int(len(core_terms) * MIN_TERM_COVERAGE))
@@ -701,9 +723,12 @@ class EnhancedDictionaryBM25Ranker:
         candidate_docs = {doc_id: count for doc_id, count in candidate_docs.items()
                          if count >= min_matches}
         
-        # Fallback
+        if verbose:
+            print(f"✓ After coverage filter: {len(candidate_docs)} (min_matches={min_matches})")
+        
+        # Fallback with more relaxed threshold
         if len(candidate_docs) < 5:
-            min_matches = max(1, int(len(core_terms) * 0.35))
+            min_matches = max(1, int(len(core_terms) * 0.25))  # More relaxed: 25%
             candidate_docs = defaultdict(int)
             for term in query_terms:
                 if term in self.index:
@@ -711,18 +736,29 @@ class EnhancedDictionaryBM25Ranker:
                         candidate_docs[doc_id] += 1
             candidate_docs = {doc_id: count for doc_id, count in candidate_docs.items()
                              if count >= min_matches}
+            
+            if verbose:
+                print(f"✓ After relaxed fallback: {len(candidate_docs)} (min_matches={min_matches})")
         
         if not candidate_docs:
+            if verbose:
+                print("✗ No candidates found!")
             return []
         
-        # Semantic filtering
+        # Semantic filtering - OPTIONAL, not strict
         semantically_relevant = {}
         for doc_id in candidate_docs.keys():
             if self.check_semantic_relevance(query_terms, doc_id):
                 semantically_relevant[doc_id] = candidate_docs[doc_id]
         
-        if len(semantically_relevant) >= 3:
+        # Only use semantic filtering if we have enough results
+        if len(semantically_relevant) >= max(3, len(candidate_docs) // 3):
             candidate_docs = semantically_relevant
+            if verbose:
+                print(f"✓ After semantic filter: {len(candidate_docs)}")
+        else:
+            if verbose:
+                print(f"✓ Skipping semantic filter (too few: {len(semantically_relevant)})")
         
         # Score
         scores = {}
@@ -731,20 +767,36 @@ class EnhancedDictionaryBM25Ranker:
             if score > 0:
                 scores[doc_id] = score
         
+        if verbose:
+            print(f"✓ Scored documents: {len(scores)}")
+            if scores:
+                print(f"  Top score: {max(scores.values()):.2f}")
+        
         # Boost
         scores = self.apply_boosting(query_terms, scores, domain_boost)
         
-        # Filter
+        if verbose:
+            print(f"✓ After boosting:")
+            if scores:
+                print(f"  Top score: {max(scores.values()):.2f}")
+        
+        # Filter with adaptive threshold
         scores = self.filter_results(scores, specificity)
         
-        # Final semantic check
+        if verbose:
+            print(f"✓ After filtering: {len(scores)} results")
+        
+        # Final semantic check - MORE RELAXED
         final_scores = {}
         for doc_id, score in scores.items():
             if self.check_semantic_relevance(query_terms, doc_id):
                 final_scores[doc_id] = score
         
-        if len(final_scores) < min(3, len(scores) // 2):
+        # If too strict, keep more results
+        if len(final_scores) < max(3, len(scores) // 2):
             final_scores = scores
+            if verbose:
+                print(f"✓ Keeping all scores (semantic check too strict)")
         
         # Sort and format
         sorted_results = sorted(final_scores.items(), key=lambda x: x[1], reverse=True)
@@ -786,29 +838,40 @@ def main():
     
     ranker = EnhancedDictionaryBM25Ranker(BLOCKS_PATH, FRONTCODED_PATH, INDEX_PATH)
     
-    # Test queries
+    # Test queries - INCLUDE NORMAL QUERIES
     test_queries = [
-        "analisi sentime",           # Kata terpotong
-        "analisisentime",            # Kata digabung
-        "analisos sentmn",           # Typo ekstrem
-        "deteksi penyakit jantung",  # Correct
-        "machin lerning",            # Common typos
-        "sistemrekomendasi",         # Kata digabung
+        # Normal queries (should work!)
+        ("analisis sentimen", "Normal query"),
+        ("sistem rekomendasi", "Normal query"),
+        ("deteksi penyakit jantung", "Normal query"),
+        ("machine learning", "Normal query"),
+        
+        # Typo queries
+        ("analisi sentime", "Kata terpotong"),
+        ("analisisentime", "Kata digabung"),
+        ("analisos sentmn", "Typo ekstrem"),
+        ("sistemrekomendasi", "Kata digabung"),
+        ("machin lerning", "Common typos"),
     ]
     
     print("\nTesting queries:")
     print("-"*80)
     
-    for query in test_queries:
-        print(f"\nQuery: '{query}'")
+    for query, description in test_queries:
+        print(f"\n[{description}]")
+        print(f"Query: '{query}'")
+        print("-" * 60)
+        
         results = ranker.search(query, top_k=5, verbose=True)
-        print(f"Found {len(results)} results")
+        print(f"\n>>> Found {len(results)} results")
         
         if results:
             for i, r in enumerate(results[:3], 1):
-                print(f"  {i}. {r['title'][:60]}... (score={r['score']:.2f})")
+                print(f"  {i}. [{r['score']:.2f}] {r['title'][:70]}...")
         else:
-            print("  No results found")
+            print("  ⚠️  WARNING: No results found!")
+        
+        print()
 
 
 if __name__ == "__main__":
