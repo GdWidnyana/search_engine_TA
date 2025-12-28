@@ -304,21 +304,6 @@ class ImprovedDictionaryBM25Ranker:
             return dp[n][1]
         
         return None
-            'android': {'mobile'},
-            'desain': {'design'},
-            'design': {'desain'},
-            'keamanan': {'security'},
-            'security': {'keamanan'},
-            'enkripsi': {'encryption'},
-            'penyakit': {'disease'},
-            'disease': {'penyakit'},
-            'jantung': {'heart', 'cardiac'},
-            'heart': {'jantung'},
-            'diagnosis': {'diagnosa'},
-            'diagnosa': {'diagnosis'},
-            'kesehatan': {'health'},
-            'health': {'kesehatan'},
-        }
     
     def find_term_in_dictionary(self, term):
         """Check if term exists"""
