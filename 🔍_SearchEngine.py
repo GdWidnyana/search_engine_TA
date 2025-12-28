@@ -15,7 +15,7 @@ from datetime import datetime
 # SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "scripts"
 # sys.path.insert(0, str(SCRIPTS_DIR))
 
-from bm25_with_dictionary_improved import EnhancedDictionaryBM25Ranker
+from bm25_with_dictionary_improved import ImprovedDictionaryBM25Ranker
 from utils import (
     load_search_history,
     save_search_history,
@@ -44,7 +44,7 @@ st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 @st.cache_resource
 def load_ranker():
     """Load Improved Dictionary BM25 ranker (cached) - UPDATED"""
-    return EnhancedDictionaryBM25Ranker(BLOCKS_PATH, FRONTCODED_PATH, INDEX_PATH)
+    return ImprovedDictionaryBM25Ranker(BLOCKS_PATH, FRONTCODED_PATH, INDEX_PATH)
 
 
 def initialize_session_state():
