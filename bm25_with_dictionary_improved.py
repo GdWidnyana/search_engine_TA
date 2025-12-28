@@ -9,7 +9,7 @@ import math
 from pathlib import Path
 from collections import defaultdict
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 BLOCKS_PATH = BASE_DIR / "data/blocks.json"
 FRONTCODED_PATH = BASE_DIR / "data/frontcoded.json"
 INDEX_PATH = BASE_DIR / "data/index.json"
@@ -172,9 +172,29 @@ class ImprovedDictionaryBM25Ranker:
     def _build_common_typos(self):
         """Build common typo patterns - EXPANDED untuk Indonesia"""
         return {
+            # Analisis variations
+            'analisi': 'analisis',
+            'analiss': 'analisis',
+            'analis': 'analisis',
+            'analisys': 'analisis',
+            'analisos': 'analisis',
+            'analsis': 'analisis',
+            'anlyisis': 'analisis',
+            'analisiss': 'analisis',
+            
+            # Sentimen variations
+            'sentime': 'sentimen',
+            'sentmn': 'sentimen',
+            'sentimn': 'sentimen',
+            'sentimnt': 'sentimen',
+            'sentiment': 'sentimen',
+            'sentment': 'sentimen',
+            
             # Medical terms
             'detksi': 'deteksi',
             'deteksi': 'deteksi',
+            'detekksi': 'deteksi',
+            'detecksi': 'deteksi',
             'penykti': 'penyakit',
             'penykit': 'penyakit',
             'penyakit': 'penyakit',
@@ -207,6 +227,7 @@ class ImprovedDictionaryBM25Ranker:
             # System terms
             'sistem': 'sistem',
             'sistim': 'sistem',
+            'systm': 'sistem',
             'aplikas': 'aplikasi',
             'aplikasi': 'aplikasi',
             'rekomndasi': 'rekomendasi',
@@ -248,6 +269,41 @@ class ImprovedDictionaryBM25Ranker:
             'antarmuka': {'interface'},
             'interface': {'antarmuka'},
             'mobile': {'android'},
+        }
+    
+    def try_split_compound_word(self, word):
+        """
+        Try to split compound words like 'analisisentime' → ['analisis', 'sentimen']
+        Uses dynamic programming to find best split
+        """
+        if len(word) < 8:  # Too short to be compound
+            return None
+        
+        n = len(word)
+        # dp[i] = (is_valid, split_words)
+        dp = [(False, [])] * (n + 1)
+        dp[0] = (True, [])
+        
+        for i in range(1, n + 1):
+            # Try all possible last words ending at position i
+            for j in range(max(0, i - 15), i):  # Max word length 15
+                prefix_word = word[j:i]
+                
+                # Check if this word exists (with correction)
+                if len(prefix_word) >= 3:
+                    corrected, is_exact, dist = self.correct_spelling(prefix_word)
+                    
+                    # Only accept if correction is reasonable
+                    if dist <= 2 and dp[j][0]:  # Previous part must be valid
+                        new_words = dp[j][1] + [corrected]
+                        # Prefer splits with fewer words
+                        if not dp[i][0] or len(new_words) < len(dp[i][1]):
+                            dp[i] = (True, new_words)
+        
+        if dp[n][0] and len(dp[n][1]) >= 2:  # At least 2 words
+            return dp[n][1]
+        
+        return None
             'android': {'mobile'},
             'desain': {'design'},
             'design': {'desain'},
@@ -358,13 +414,26 @@ class ImprovedDictionaryBM25Ranker:
     
     def preprocess_query(self, query):
         """
-        IMPROVED query preprocessing with better correction
+        IMPROVED query preprocessing with compound word splitting
         """
         query = query.lower().strip()
         terms = [t for t in query.split() if len(t) > 1]
         
         if not terms:
             return [], []
+        
+        # Try to split compound words first
+        expanded_terms = []
+        for term in terms:
+            # Try splitting if word is long and has no spaces
+            if len(term) >= 8:
+                split_result = self.try_split_compound_word(term)
+                if split_result:
+                    expanded_terms.extend(split_result)
+                    continue
+            expanded_terms.append(term)
+        
+        terms = expanded_terms
         
         # Spelling correction with confidence
         corrected_terms = []
