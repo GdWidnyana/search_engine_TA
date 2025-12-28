@@ -1,15 +1,11 @@
-# bm25_with_dictionary_improved_v2.py
+# bm25_with_dictionary_improved.py
 """
-BM25 Ranker dengan Dictionary + ENHANCED Spelling Correction
-Perbaikan untuk handle:
-1. Kata terpotong: "analisi sentime" → "analisis sentimen"
-2. Kata digabung: "analisisentime" → "analisis sentimen"
-3. Typo ekstrem: "analisos sentmn" → "analisis sentimen"
+BM25 Ranker dengan Dictionary + IMPROVED Spelling Correction
+Perbaikan untuk handle typo ekstrem seperti "detksi penykti jntung"
 """
 
 import json
 import math
-import re
 from pathlib import Path
 from collections import defaultdict
 
@@ -32,12 +28,12 @@ MAX_RESULTS_SPECIFIC = 25
 MAX_RESULTS_MODERATE = 40
 MAX_RESULTS_GENERIC = 55
 
-# Score thresholds - LOWERED untuk hindari false negative
-MIN_SCORE_THRESHOLD = 3.0  # Lowered from 8.0 to 3.0
+# Score thresholds - INCREASED for better precision
+MIN_SCORE_THRESHOLD = 8.0  # Raised from 5.0 to 8.0 for even stricter filtering
 
-# Term coverage - RELAXED untuk hindari false negative
-MIN_TERM_COVERAGE = 0.40  # Lowered from 0.65 to 0.40
-IDEAL_TERM_COVERAGE = 0.70  # Lowered from 0.85 to 0.70
+# Term coverage - INCREASED for stricter matching
+MIN_TERM_COVERAGE = 0.65  # Raised from 0.50 to 0.65 (require 2 of 3 terms)
+IDEAL_TERM_COVERAGE = 0.85  # Raised from 0.70 to 0.85
 
 # Generic terms
 GENERIC_TERMS = {'dengan', 'untuk', 'pada', 'yang', 'dari', 'dan', 'atau', 'ke', 'oleh'}
@@ -124,15 +120,14 @@ def edit_distance(s1, s2):
     return previous_row[-1]
 
 
-class EnhancedDictionaryBM25Ranker:
+class ImprovedDictionaryBM25Ranker:
     """
-    Enhanced BM25 dengan spelling correction yang lebih baik
-    Handle: kata terpotong, kata digabung, typo ekstrem
+    Improved BM25 dengan spelling correction yang lebih baik
     """
     
     def __init__(self, blocks_path, frontcoded_path, index_path):
         """Load dictionary and index"""
-        print(f"Loading enhanced dictionary and index...")
+        print(f"Loading improved dictionary and index...")
         
         # Load blocks
         with open(blocks_path, 'r') as f:
@@ -165,87 +160,84 @@ class EnhancedDictionaryBM25Ranker:
         # Term frequency
         self.term_freq = {term: len(postings) for term, postings in self.index.items()}
         
-        # Build enhanced typo dictionary
+        # Build common typos dictionary - EXPANDED
         self.common_typos = self._build_common_typos()
-        
-        # Build word pairs for compound detection
-        self.common_pairs = self._build_common_pairs()
         
         # Synonyms
         self.synonyms = self._build_synonyms()
         
         print(f"  ✓ Index loaded: {self.N} docs, {len(self.index)} terms")
         print(f"  ✓ Common typos: {len(self.common_typos)} patterns")
-        print(f"  ✓ Common pairs: {len(self.common_pairs)} word combinations")
     
     def _build_common_typos(self):
-        """Build comprehensive typo patterns"""
+        """Build common typo patterns - EXPANDED untuk Indonesia"""
         return {
             # Medical terms
-            'detksi': 'deteksi', 'deteksi': 'deteksi', 'detek': 'deteksi',
-            'penykti': 'penyakit', 'penykit': 'penyakit', 'penyakit': 'penyakit', 'penykt': 'penyakit',
-            'jntung': 'jantung', 'jantng': 'jantung', 'jantung': 'jantung', 'jntng': 'jantung',
-            'diabtes': 'diabetes', 'diabetis': 'diabetes', 'diabet': 'diabetes',
-            'kankr': 'kanker', 'kanker': 'kanker', 'kankr': 'kanker',
-            'strke': 'stroke', 'stroke': 'stroke', 'strok': 'stroke',
-            'dagnosis': 'diagnosis', 'diagnosa': 'diagnosis', 'diagnosis': 'diagnosis', 'diagnos': 'diagnosis',
-            'kesehtan': 'kesehatan', 'kesehatn': 'kesehatan', 'kesehatan': 'kesehatan', 'kesehat': 'kesehatan',
-            
-            # Analysis & Sentiment
-            'analisi': 'analisis', 'analisis': 'analisis', 'analis': 'analisis', 'analisa': 'analisis',
-            'analisos': 'analisis', 'analisys': 'analisis', 'analize': 'analisis',
-            'sentime': 'sentimen', 'sentimen': 'sentimen', 'sentiment': 'sentimen', 'sentimn': 'sentimen',
-            'sentmn': 'sentimen', 'sentimnt': 'sentimen', 'sentimnt': 'sentimen',
+            'detksi': 'deteksi',
+            'deteksi': 'deteksi',
+            'penykti': 'penyakit',
+            'penykit': 'penyakit',
+            'penyakit': 'penyakit',
+            'jntung': 'jantung',
+            'jantng': 'jantung',
+            'jantung': 'jantung',
+            'diabtes': 'diabetes',
+            'diabetis': 'diabetes',
+            'kankr': 'kanker',
+            'kanker': 'kanker',
+            'strke': 'stroke',
+            'stroke': 'stroke',
+            'dagnosis': 'diagnosis',
+            'diagnosa': 'diagnosis',
+            'diagnosis': 'diagnosis',
+            'kesehtan': 'kesehatan',
+            'kesehatn': 'kesehatan',
             
             # ML/AI terms
-            'machin': 'machine', 'machine': 'machine', 'machn': 'machine',
-            'lerning': 'learning', 'learnnig': 'learning', 'learning': 'learning', 'learnng': 'learning',
-            'klasifkasi': 'klasifikasi', 'klasifikasi': 'klasifikasi', 'klasifksi': 'klasifikasi',
-            'algortima': 'algoritma', 'algoritma': 'algoritma', 'algorit': 'algoritma', 'algoritme': 'algoritma',
-            'predksi': 'prediksi', 'prediksi': 'prediksi', 'prediks': 'prediksi',
+            'machin': 'machine',
+            'lerning': 'learning',
+            'learnnig': 'learning',
+            'klasifkasi': 'klasifikasi',
+            'klasifikasi': 'klasifikasi',
+            'algortima': 'algoritma',
+            'algoritma': 'algoritma',
+            'predksi': 'prediksi',
+            'prediksi': 'prediksi',
             
             # System terms
-            'sistem': 'sistem', 'sistim': 'sistem', 'system': 'sistem', 'sistm': 'sistem',
-            'aplikas': 'aplikasi', 'aplikasi': 'aplikasi', 'aplkasi': 'aplikasi', 'apliksi': 'aplikasi',
-            'rekomndasi': 'rekomendasi', 'rekomendasi': 'rekomendasi', 'rekomend': 'rekomendasi',
-            'pencaruan': 'pencarian', 'pencarian': 'pencarian', 'pencrarian': 'pencarian', 'pencaran': 'pencarian',
+            'sistem': 'sistem',
+            'sistim': 'sistem',
+            'aplikas': 'aplikasi',
+            'aplikasi': 'aplikasi',
+            'rekomndasi': 'rekomendasi',
+            'rekomendasi': 'rekomendasi',
+            'pencaruan': 'pencarian',
+            'pencarian': 'pencarian',
+            'pencrarian': 'pencarian',
             
             # UI/UX terms
-            'interfce': 'interface', 'interface': 'interface', 'intrface': 'interface', 'interfac': 'interface',
-            'antarmka': 'antarmuka', 'antarmuka': 'antarmuka', 'antarmka': 'antarmuka',
-            'pengguna': 'pengguna', 'pemakai': 'pengguna', 'penguna': 'pengguna',
+            'interfce': 'interface',
+            'interface': 'interface',
+            'antarmka': 'antarmuka',
+            'antarmuka': 'antarmuka',
+            'pengguna': 'pengguna',
+            'pemakai': 'pengguna',
             
-            # Other
-            'ontolgi': 'ontologi', 'ontologi': 'ontologi', 'ontolog': 'ontologi',
-            'jaringan': 'jaringan', 'jaringn': 'jaringan', 'jaring': 'jaringan',
-        }
-    
-    def _build_common_pairs(self):
-        """Build common word pairs untuk deteksi kata digabung"""
-        return {
-            'analisissentimen': ['analisis', 'sentimen'],
-            'analisisentimen': ['analisis', 'sentimen'],
-            'analisissistem': ['analisis', 'sistem'],
-            'sistemrekomendasi': ['sistem', 'rekomendasi'],
-            'machinelearning': ['machine', 'learning'],
-            'deeplearning': ['deep', 'learning'],
-            'userinterface': ['user', 'interface'],
-            'deteksipenyakit': ['deteksi', 'penyakit'],
-            'klasifikasipenyakit': ['klasifikasi', 'penyakit'],
-            'textmining': ['text', 'mining'],
-            'datamining': ['data', 'mining'],
-            'neuralnetwork': ['neural', 'network'],
+            # Other common
+            'ontolgi': 'ontologi',
+            'ontologi': 'ontologi',
+            'jaringan': 'jaringan',
+            'jaringn': 'jaringan',
         }
     
     def _build_synonyms(self):
-        """Build synonyms"""
+        """Build synonyms - EXPANDED"""
         return {
             'sistem': {'aplikasi', 'program'},
             'aplikasi': {'sistem', 'program'},
             'analisis': {'analisa'},
             'analisa': {'analisis'},
             'sentimen': {'sentiment'},
-            'sentiment': {'sentimen'},
             'pencarian': {'search'},
             'rekomendasi': {'recommendation'},
             'klasifikasi': {'classification', 'pengelompokan'},
@@ -276,93 +268,32 @@ class EnhancedDictionaryBM25Ranker:
         """Check if term exists"""
         return term in self.vocabulary
     
-    def split_compound_word(self, word):
-        """
-        NEW: Split kata yang digabung menjadi dua kata
-        Contoh: "analisisentime" → ["analisis", "sentimen"]
-        """
-        # Check if exact match in common pairs
-        word_lower = word.lower()
-        if word_lower in self.common_pairs:
-            return self.common_pairs[word_lower]
+    def find_block(self, term):
+        """Find block containing term"""
+        if len(term) >= 3:
+            block_key = term[:3]
+        else:
+            block_key = term
         
-        # Try to find valid splits
-        best_split = None
-        best_score = 0
-        
-        # Try different split points (minimum 4 chars each part)
-        for i in range(4, len(word) - 3):
-            part1 = word[:i]
-            part2 = word[i:]
-            
-            # Correct each part
-            corrected1, _, dist1 = self.correct_spelling(part1)
-            corrected2, _, dist2 = self.correct_spelling(part2)
-            
-            # Calculate split score (lower distance = better)
-            if dist1 < 999 and dist2 < 999:
-                # Prioritize splits where both parts are in vocabulary
-                freq1 = self.term_freq.get(corrected1, 0)
-                freq2 = self.term_freq.get(corrected2, 0)
-                
-                # Score based on: found in dict, frequency, and edit distance
-                score = (freq1 + freq2) - (dist1 + dist2) * 10
-                
-                if score > best_score:
-                    best_score = score
-                    best_split = [corrected1, corrected2]
-        
-        return best_split if best_split else None
-    
-    def complete_truncated_word(self, word):
-        """
-        NEW: Complete kata yang terpotong
-        Contoh: "analisi" → "analisis", "sentime" → "sentimen"
-        """
-        if len(word) < 4:
-            return None
-        
-        # Find words that start with this prefix
-        candidates = []
-        
-        # Search in blocks
-        block_key = word[:3]
         if block_key in self.blocks:
-            for term in self.blocks[block_key]:
-                if term.startswith(word):
-                    freq = self.term_freq.get(term, 0)
-                    length_diff = len(term) - len(word)
-                    # Prefer shorter completions with higher frequency
-                    score = freq - length_diff * 10
-                    candidates.append((term, score, length_diff))
-        
-        if candidates:
-            # Sort by score (higher is better)
-            candidates.sort(key=lambda x: x[1], reverse=True)
-            # Return best match if completion is reasonable (max 4 chars added)
-            if candidates[0][2] <= 4:
-                return candidates[0][0]
+            if term in self.blocks[block_key]:
+                return block_key
         
         return None
     
     def correct_spelling(self, word):
         """
-        ENHANCED spelling correction dengan multi-stage approach
+        IMPROVED spelling correction dengan multi-stage approach
         """
-        # Stage 0: Check if word already correct
+        # Stage 1: Check if word already correct
         if self.find_term_in_dictionary(word):
             return word, True, 0
         
-        # Stage 1: Check common typos dictionary - PRIORITY
+        # Stage 2: Check common typos dictionary - PRIORITY
         if word in self.common_typos:
             corrected = self.common_typos[word]
             if self.find_term_in_dictionary(corrected):
                 return corrected, False, 1
-        
-        # Stage 2: Try to complete truncated word
-        completed = self.complete_truncated_word(word)
-        if completed:
-            return completed, False, len(completed) - len(word)
         
         # Stage 3: Prefix matching (for incomplete words)
         if len(word) >= 3:
@@ -384,20 +315,22 @@ class EnhancedDictionaryBM25Ranker:
         if len(word) >= 3:
             search_prefixes.add(word[:3])
             
-            # Add blocks with similar prefixes
+            # Add blocks with similar prefixes (allow 1 char difference)
             for i in range(min(3, len(word))):
                 for c in 'abcdefghijklmnopqrstuvwxyz':
                     variant = word[:i] + c + (word[i+1:3] if len(word) > i+1 else '')
                     if len(variant) >= 3 and variant in self.blocks:
                         search_prefixes.add(variant)
         
-        max_distance = min(4, len(word) // 2 + 1)
+        # Increased max distance for extreme typos
+        max_distance = min(3, len(word) // 2)  # Allow up to 3 edits or half the word length
         
         for prefix in search_prefixes:
             if prefix not in self.blocks:
                 continue
             
             for vocab_term in self.blocks[prefix]:
+                # More lenient length check
                 if abs(len(vocab_term) - len(word)) > max_distance:
                     continue
                 
@@ -407,70 +340,12 @@ class EnhancedDictionaryBM25Ranker:
                     candidates.append((vocab_term, dist, freq))
         
         if candidates:
+            # Sort by: distance (lower better), then frequency (higher better)
             candidates.sort(key=lambda x: (x[1], -x[2]))
             return candidates[0][0], False, candidates[0][1]
         
         # No correction found
         return word, False, 999
-    
-    def preprocess_query(self, query):
-        """
-        ENHANCED query preprocessing dengan handling untuk:
-        1. Kata digabung
-        2. Kata terpotong
-        3. Typo ekstrem
-        """
-        query = query.lower().strip()
-        
-        # Remove extra spaces
-        query = re.sub(r'\s+', ' ', query)
-        
-        # Initial tokenization
-        raw_terms = [t for t in query.split() if len(t) > 1]
-        
-        if not raw_terms:
-            return [], []
-        
-        # Process each term
-        corrected_terms = []
-        corrections = []
-        
-        for term in raw_terms:
-            # Try to detect compound word first
-            split_result = self.split_compound_word(term)
-            
-            if split_result:
-                # Word was split successfully
-                corrected_terms.extend(split_result)
-                corrections.append(f"{term}→{' '.join(split_result)}")
-            else:
-                # Normal spelling correction
-                corrected, was_correct, distance = self.correct_spelling(term)
-                corrected_terms.append(corrected)
-                
-                if not was_correct and distance < 999:
-                    corrections.append(f"{term}→{corrected}")
-        
-        # Remove duplicates while preserving order
-        seen = set()
-        unique_terms = []
-        for term in corrected_terms:
-            if term not in seen:
-                seen.add(term)
-                unique_terms.append(term)
-        
-        # Query expansion (only if corrections look good)
-        all_distances = [999]  # default
-        for term in raw_terms:
-            _, _, dist = self.correct_spelling(term)
-            all_distances.append(dist)
-        
-        if all(d < 3 for d in all_distances):
-            expanded_terms = self.expand_query(unique_terms)
-        else:
-            expanded_terms = unique_terms
-        
-        return expanded_terms, corrections
     
     def expand_query(self, terms):
         """Query expansion with synonyms"""
@@ -480,6 +355,38 @@ class EnhancedDictionaryBM25Ranker:
                 # Add top 2 synonyms
                 expanded.update(list(self.synonyms[term])[:2])
         return list(expanded)
+    
+    def preprocess_query(self, query):
+        """
+        IMPROVED query preprocessing with better correction
+        """
+        query = query.lower().strip()
+        terms = [t for t in query.split() if len(t) > 1]
+        
+        if not terms:
+            return [], []
+        
+        # Spelling correction with confidence
+        corrected_terms = []
+        corrections = []
+        correction_confidence = []
+        
+        for term in terms:
+            corrected, was_correct, distance = self.correct_spelling(term)
+            corrected_terms.append(corrected)
+            
+            if not was_correct:
+                corrections.append(f"{term}→{corrected}")
+                correction_confidence.append(distance)
+        
+        # Query expansion (only if corrections look good)
+        if all(conf < 3 for conf in correction_confidence):
+            expanded_terms = self.expand_query(corrected_terms)
+        else:
+            # If corrections are uncertain, don't expand
+            expanded_terms = corrected_terms
+        
+        return expanded_terms, corrections
     
     def get_core_terms(self, query_terms):
         """Get core terms (remove stopwords)"""
@@ -512,6 +419,7 @@ class EnhancedDictionaryBM25Ranker:
                 domain_matches[domain] = matches
         
         if domain_matches:
+            # Return domain with most matches
             best_domain = max(domain_matches.items(), key=lambda x: x[1])
             return best_domain[0], DOMAIN_PATTERNS[best_domain[0]]['boost']
         
@@ -525,6 +433,7 @@ class EnhancedDictionaryBM25Ranker:
         df = len(self.index[term])
         idf = math.log((self.N - df + 0.5) / (df + 0.5) + 1.0)
         
+        # Penalty for very common terms
         if df > self.N * 0.5:
             idf *= 0.4
         elif df > self.N * 0.3:
@@ -546,11 +455,15 @@ class EnhancedDictionaryBM25Ranker:
         return matches / len(core_terms)
     
     def check_semantic_relevance(self, query_terms, doc_id):
-        """Check semantic relevance - RELAXED untuk hindari false negative"""
+        """
+        Check semantic relevance - ensure doc is actually about the query topic
+        Return True only if doc contains key concepts from query
+        """
         core_terms = self.get_core_terms(query_terms)
         if not core_terms:
             return True
         
+        # Get document text (title + keywords + abstract)
         metadata = self.doc_metadata.get(doc_id, {})
         doc_text = (
             metadata.get('title', '') + ' ' + 
@@ -558,20 +471,23 @@ class EnhancedDictionaryBM25Ranker:
             metadata.get('abstract', '')
         ).lower()
         
+        # Check if ALL core terms (or their synonyms) appear in document
         matches = 0
         for term in core_terms:
+            # Check direct match
             if term in doc_text:
                 matches += 1
                 continue
             
+            # Check synonyms
             if term in self.synonyms:
                 if any(syn in doc_text for syn in self.synonyms[term]):
                     matches += 1
                     continue
         
+        # Require at least 70% of core terms to be in document text
         coverage = matches / len(core_terms)
-        # RELAXED: 50% coverage (was 70%)
-        return coverage >= 0.5
+        return coverage >= 0.7
     
     def compute_bm25_score(self, query_terms, doc_id):
         """Compute BM25 score"""
@@ -603,6 +519,7 @@ class EnhancedDictionaryBM25Ranker:
         for doc_id, base_score in doc_scores.items():
             mult = 1.0
             
+            # Title matching boost
             title_matches = sum(1 for t in core_terms
                               if t in self.title_index and doc_id in self.title_index[t])
             
@@ -616,6 +533,7 @@ class EnhancedDictionaryBM25Ranker:
                 else:
                     mult += TITLE_BOOST * title_cov
             
+            # Keyword matching boost
             kw_matches = sum(1 for t in core_terms
                            if t in self.keyword_index and doc_id in self.keyword_index[t])
             
@@ -623,15 +541,18 @@ class EnhancedDictionaryBM25Ranker:
                 kw_cov = kw_matches / len(core_terms)
                 mult += KEYWORD_BOOST * kw_cov
             
+            # Perfect match bonus
             if title_matches == len(core_terms) and len(core_terms) >= 2:
                 mult *= 2.0
             
+            # High coverage bonus
             coverage = self.compute_term_coverage(query_terms, doc_id)
             if coverage >= IDEAL_TERM_COVERAGE:
                 mult *= 1.4
             elif coverage >= 0.6:
                 mult *= 1.2
             
+            # Domain boost
             mult *= domain_boost
             
             boosted[doc_id] = base_score * mult
@@ -639,43 +560,35 @@ class EnhancedDictionaryBM25Ranker:
         return boosted
     
     def filter_results(self, scores, specificity):
-        """Filter results with RELAXED threshold"""
+        """Filter results with higher threshold"""
         if not scores:
             return {}
         
         score_values = sorted(scores.values(), reverse=True)
         
-        # More results for each category
+        # Limits
         if specificity == 'specific':
             max_results = MAX_RESULTS_SPECIFIC
-            percentile = 0.30  # More lenient
+            percentile = 0.25
         elif specificity == 'moderate':
             max_results = MAX_RESULTS_MODERATE
-            percentile = 0.40  # More lenient
+            percentile = 0.35
         else:
             max_results = MAX_RESULTS_GENERIC
-            percentile = 0.50  # More lenient
+            percentile = 0.45
         
-        # Adaptive threshold - MORE RELAXED
-        if len(score_values) > 15:
-            cutoff_idx = max(5, int(len(score_values) * percentile))
-            adaptive_threshold = score_values[min(cutoff_idx, len(score_values)-1)]
+        # Adaptive threshold
+        if len(score_values) > 20:
+            cutoff_idx = max(8, int(len(score_values) * percentile))
+            adaptive_threshold = score_values[cutoff_idx]
         else:
-            # For small result sets, use lower threshold
-            adaptive_threshold = MIN_SCORE_THRESHOLD * 0.5
+            adaptive_threshold = MIN_SCORE_THRESHOLD
         
-        # Use the LOWER of the two thresholds
-        threshold = min(adaptive_threshold, MIN_SCORE_THRESHOLD)
+        threshold = max(adaptive_threshold, MIN_SCORE_THRESHOLD)
         
         # Apply threshold
         filtered = {doc_id: score for doc_id, score in scores.items()
                    if score >= threshold}
-        
-        # If we filtered too much, relax further
-        if len(filtered) < 3 and len(scores) >= 3:
-            # Just take top scores without threshold
-            sorted_items = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-            filtered = dict(sorted_items[:max(max_results, 10)])
         
         # Limit results
         if len(filtered) > max_results:
@@ -685,8 +598,8 @@ class EnhancedDictionaryBM25Ranker:
         return filtered
     
     def search(self, query, top_k=10, verbose=False):
-        """Main search function with enhanced correction"""
-        # Preprocess with enhanced correction
+        """Main search function with improved correction and semantic filtering"""
+        # Preprocess
         query_terms, corrections = self.preprocess_query(query)
         
         if not query_terms:
@@ -695,15 +608,9 @@ class EnhancedDictionaryBM25Ranker:
         if corrections and verbose:
             print(f"✓ Corrected: {', '.join(corrections)}")
         
-        if verbose:
-            print(f"✓ Query terms: {query_terms}")
-        
         # Analyze
         specificity = self.analyze_query_specificity(query_terms)
         domain, domain_boost = self.detect_query_domain(query_terms)
-        
-        if verbose:
-            print(f"✓ Specificity: {specificity}, Domain: {domain}")
         
         # Collect candidates
         candidate_docs = defaultdict(int)
@@ -713,9 +620,6 @@ class EnhancedDictionaryBM25Ranker:
                 for doc_id in self.index[term].keys():
                     candidate_docs[doc_id] += 1
         
-        if verbose:
-            print(f"✓ Initial candidates: {len(candidate_docs)}")
-        
         # Coverage filter
         core_terms = self.get_core_terms(query_terms)
         min_matches = max(1, int(len(core_terms) * MIN_TERM_COVERAGE))
@@ -723,12 +627,9 @@ class EnhancedDictionaryBM25Ranker:
         candidate_docs = {doc_id: count for doc_id, count in candidate_docs.items()
                          if count >= min_matches}
         
-        if verbose:
-            print(f"✓ After coverage filter: {len(candidate_docs)} (min_matches={min_matches})")
-        
-        # Fallback with more relaxed threshold
+        # Fallback
         if len(candidate_docs) < 5:
-            min_matches = max(1, int(len(core_terms) * 0.25))  # More relaxed: 25%
+            min_matches = max(1, int(len(core_terms) * 0.35))
             candidate_docs = defaultdict(int)
             for term in query_terms:
                 if term in self.index:
@@ -736,29 +637,19 @@ class EnhancedDictionaryBM25Ranker:
                         candidate_docs[doc_id] += 1
             candidate_docs = {doc_id: count for doc_id, count in candidate_docs.items()
                              if count >= min_matches}
-            
-            if verbose:
-                print(f"✓ After relaxed fallback: {len(candidate_docs)} (min_matches={min_matches})")
         
         if not candidate_docs:
-            if verbose:
-                print("✗ No candidates found!")
             return []
         
-        # Semantic filtering - OPTIONAL, not strict
+        # NEW: Semantic filtering - remove irrelevant documents
         semantically_relevant = {}
         for doc_id in candidate_docs.keys():
             if self.check_semantic_relevance(query_terms, doc_id):
                 semantically_relevant[doc_id] = candidate_docs[doc_id]
         
-        # Only use semantic filtering if we have enough results
-        if len(semantically_relevant) >= max(3, len(candidate_docs) // 3):
+        # If semantic filtering removes too many, use original candidates
+        if len(semantically_relevant) >= 3:
             candidate_docs = semantically_relevant
-            if verbose:
-                print(f"✓ After semantic filter: {len(candidate_docs)}")
-        else:
-            if verbose:
-                print(f"✓ Skipping semantic filter (too few: {len(semantically_relevant)})")
         
         # Score
         scores = {}
@@ -767,36 +658,22 @@ class EnhancedDictionaryBM25Ranker:
             if score > 0:
                 scores[doc_id] = score
         
-        if verbose:
-            print(f"✓ Scored documents: {len(scores)}")
-            if scores:
-                print(f"  Top score: {max(scores.values()):.2f}")
-        
         # Boost
         scores = self.apply_boosting(query_terms, scores, domain_boost)
         
-        if verbose:
-            print(f"✓ After boosting:")
-            if scores:
-                print(f"  Top score: {max(scores.values()):.2f}")
-        
-        # Filter with adaptive threshold
+        # Filter
         scores = self.filter_results(scores, specificity)
         
-        if verbose:
-            print(f"✓ After filtering: {len(scores)} results")
-        
-        # Final semantic check - MORE RELAXED
+        # NEW: Final semantic check - ensure top results are truly relevant
         final_scores = {}
         for doc_id, score in scores.items():
+            # Double-check semantic relevance with stricter threshold for top results
             if self.check_semantic_relevance(query_terms, doc_id):
                 final_scores[doc_id] = score
         
-        # If too strict, keep more results
-        if len(final_scores) < max(3, len(scores) // 2):
+        # If too strict, relax a bit
+        if len(final_scores) < min(3, len(scores) // 2):
             final_scores = scores
-            if verbose:
-                print(f"✓ Keeping all scores (semantic check too strict)")
         
         # Sort and format
         sorted_results = sorted(final_scores.items(), key=lambda x: x[1], reverse=True)
@@ -825,53 +702,37 @@ class EnhancedDictionaryBM25Ranker:
             'num_frontcoded': len(self.frontcoded),
             'avg_block_size': sum(len(v) for v in self.blocks.values()) / len(self.blocks),
             'compression_ratio': len(self.vocabulary) / len(self.frontcoded),
-            'num_typo_patterns': len(self.common_typos),
-            'num_word_pairs': len(self.common_pairs)
+            'num_typo_patterns': len(self.common_typos)
         }
 
 
 def main():
-    """Test the enhanced ranker"""
+    """Test the improved ranker"""
     print("="*80)
-    print("Enhanced BM25 with Advanced Spelling Correction")
+    print("Improved BM25 with Better Spelling Correction")
     print("="*80)
     
-    ranker = EnhancedDictionaryBM25Ranker(BLOCKS_PATH, FRONTCODED_PATH, INDEX_PATH)
+    ranker = ImprovedDictionaryBM25Ranker(BLOCKS_PATH, FRONTCODED_PATH, INDEX_PATH)
     
-    # Test queries - INCLUDE NORMAL QUERIES
+    # Test queries with typos
     test_queries = [
-        # Normal queries (should work!)
-        ("analisis sentimen", "Normal query"),
-        ("sistem rekomendasi", "Normal query"),
-        ("deteksi penyakit jantung", "Normal query"),
-        ("machine learning", "Normal query"),
-        
-        # Typo queries
-        ("analisi sentime", "Kata terpotong"),
-        ("analisisentime", "Kata digabung"),
-        ("analisos sentmn", "Typo ekstrem"),
-        ("sistemrekomendasi", "Kata digabung"),
-        ("machin lerning", "Common typos"),
+        "detksi penykti jntung",    # Extreme typos
+        "machin lerning",            # Common typos
+        "sistem rekomndasi",         # Moderate typos
+        "klasifikasi penyakit",      # Correct spelling
     ]
     
     print("\nTesting queries:")
     print("-"*80)
     
-    for query, description in test_queries:
-        print(f"\n[{description}]")
-        print(f"Query: '{query}'")
-        print("-" * 60)
-        
+    for query in test_queries:
+        print(f"\nQuery: '{query}'")
         results = ranker.search(query, top_k=5, verbose=True)
-        print(f"\n>>> Found {len(results)} results")
+        print(f"Found {len(results)} results")
         
         if results:
             for i, r in enumerate(results[:3], 1):
-                print(f"  {i}. [{r['score']:.2f}] {r['title'][:70]}...")
-        else:
-            print("  ⚠️  WARNING: No results found!")
-        
-        print()
+                print(f"  {i}. {r['title'][:60]}... (score={r['score']:.2f})")
 
 
 if __name__ == "__main__":
