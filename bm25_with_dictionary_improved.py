@@ -10,9 +10,9 @@ from pathlib import Path
 from collections import defaultdict
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-BLOCKS_PATH = BASE_DIR / "data/blocks.json"
-FRONTCODED_PATH = BASE_DIR / "data/frontcoded.json"
-INDEX_PATH = BASE_DIR / "data/index.json"
+BLOCKS_PATH = BASE_DIR / "streamlit_ir/blocks.json"
+FRONTCODED_PATH = BASE_DIR / "streamlit_ir/frontcoded.json"
+INDEX_PATH = BASE_DIR / "streamlit_ir/index.json"
 
 # BM25 Parameters
 K1 = 1.6
@@ -172,29 +172,9 @@ class ImprovedDictionaryBM25Ranker:
     def _build_common_typos(self):
         """Build common typo patterns - EXPANDED untuk Indonesia"""
         return {
-            # Analisis variations
-            'analisi': 'analisis',
-            'analiss': 'analisis',
-            'analis': 'analisis',
-            'analisys': 'analisis',
-            'analisos': 'analisis',
-            'analsis': 'analisis',
-            'anlyisis': 'analisis',
-            'analisiss': 'analisis',
-            
-            # Sentimen variations
-            'sentime': 'sentimen',
-            'sentmn': 'sentimen',
-            'sentimn': 'sentimen',
-            'sentimnt': 'sentimen',
-            'sentiment': 'sentimen',
-            'sentment': 'sentimen',
-            
             # Medical terms
             'detksi': 'deteksi',
             'deteksi': 'deteksi',
-            'detekksi': 'deteksi',
-            'detecksi': 'deteksi',
             'penykti': 'penyakit',
             'penykit': 'penyakit',
             'penyakit': 'penyakit',
@@ -227,7 +207,6 @@ class ImprovedDictionaryBM25Ranker:
             # System terms
             'sistem': 'sistem',
             'sistim': 'sistem',
-            'systm': 'sistem',
             'aplikas': 'aplikasi',
             'aplikasi': 'aplikasi',
             'rekomndasi': 'rekomendasi',
@@ -269,72 +248,21 @@ class ImprovedDictionaryBM25Ranker:
             'antarmuka': {'interface'},
             'interface': {'antarmuka'},
             'mobile': {'android'},
+            'android': {'mobile'},
+            'desain': {'design'},
+            'design': {'desain'},
+            'keamanan': {'security'},
+            'security': {'keamanan'},
+            'enkripsi': {'encryption'},
+            'penyakit': {'disease'},
+            'disease': {'penyakit'},
+            'jantung': {'heart', 'cardiac'},
+            'heart': {'jantung'},
+            'diagnosis': {'diagnosa'},
+            'diagnosa': {'diagnosis'},
+            'kesehatan': {'health'},
+            'health': {'kesehatan'},
         }
-    
-    def try_split_compound_word(self, word):
-        """
-        Try to split compound words like 'analisisentime' → ['analisis', 'sentimen']
-        Uses dynamic programming with aggressive matching + fallback
-        """
-        if len(word) < 8:  # Too short to be compound
-            return None
-        
-        n = len(word)
-        # dp[i] = (is_valid, split_words, total_distance)
-        dp = [(False, [], 999)] * (n + 1)
-        dp[0] = (True, [], 0)
-        
-        for i in range(1, n + 1):
-            # Try all possible last words ending at position i
-            for j in range(max(0, i - 12), i):  # Max word length 12
-                prefix_word = word[j:i]
-                
-                # Skip if too short
-                if len(prefix_word) < 3:
-                    continue
-                
-                # Check if this word exists (with correction)
-                corrected, was_correct, dist = self.correct_spelling(prefix_word)
-                
-                # Be more lenient - accept if correction distance is reasonable
-                if dist <= 3 and dp[j][0]:  # Previous part must be valid
-                    new_words = dp[j][1] + [corrected]
-                    new_total_dist = dp[j][2] + dist
-                    
-                    # Prefer splits with:
-                    # 1. Fewer total edits
-                    # 2. Fewer words (if edits are equal)
-                    if not dp[i][0] or \
-                       new_total_dist < dp[i][2] or \
-                       (new_total_dist == dp[i][2] and len(new_words) < len(dp[i][1])):
-                        dp[i] = (True, new_words, new_total_dist)
-        
-        # Accept if we found a valid split with 2+ words
-        if dp[n][0] and len(dp[n][1]) >= 2:
-            # Additional check: total correction distance should be reasonable
-            if dp[n][2] <= len(word) // 3:  # Max 1 error per 3 chars
-                return dp[n][1]
-        
-        # Fallback: Try simple binary split in the middle
-        # This handles cases like "analisisentime" → "analisi" + "sentime"
-        mid = len(word) // 2
-        for offset in range(-2, 3):  # Try splits around middle
-            split_point = mid + offset
-            if split_point < 3 or split_point > len(word) - 3:
-                continue
-            
-            part1 = word[:split_point]
-            part2 = word[split_point:]
-            
-            # Try to correct both parts
-            corrected1, _, dist1 = self.correct_spelling(part1)
-            corrected2, _, dist2 = self.correct_spelling(part2)
-            
-            # Accept if both parts can be corrected reasonably
-            if dist1 <= 2 and dist2 <= 2:
-                return [corrected1, corrected2]
-        
-        return None
     
     def find_term_in_dictionary(self, term):
         """Check if term exists"""
@@ -356,7 +284,6 @@ class ImprovedDictionaryBM25Ranker:
     def correct_spelling(self, word):
         """
         IMPROVED spelling correction dengan multi-stage approach
-        AGGRESSIVE MODE for common patterns
         """
         # Stage 1: Check if word already correct
         if self.find_term_in_dictionary(word):
@@ -367,24 +294,6 @@ class ImprovedDictionaryBM25Ranker:
             corrected = self.common_typos[word]
             if self.find_term_in_dictionary(corrected):
                 return corrected, False, 1
-        
-        # Stage 2.5: AGGRESSIVE - Check if word is very close to common patterns
-        # This handles cases where common_typos might not be loaded
-        aggressive_patterns = {
-            'analisi': 'analisis',
-            'analiss': 'analisis',
-            'analis': 'analisis',
-            'analisys': 'analisis',
-            'analisos': 'analisis',
-            'sentime': 'sentimen',
-            'sentmn': 'sentimen',
-            'sentimn': 'sentimen',
-            'sentimnt': 'sentimen',
-        }
-        
-        if word in aggressive_patterns:
-            corrected = aggressive_patterns[word]
-            return corrected, False, 1
         
         # Stage 3: Prefix matching (for incomplete words)
         if len(word) >= 3:
@@ -447,9 +356,9 @@ class ImprovedDictionaryBM25Ranker:
                 expanded.update(list(self.synonyms[term])[:2])
         return list(expanded)
     
-    def preprocess_query(self, query, verbose=False):
+    def preprocess_query(self, query):
         """
-        IMPROVED query preprocessing with compound word splitting
+        IMPROVED query preprocessing with better correction
         """
         query = query.lower().strip()
         terms = [t for t in query.split() if len(t) > 1]
@@ -457,72 +366,25 @@ class ImprovedDictionaryBM25Ranker:
         if not terms:
             return [], []
         
-        if verbose:
-            print(f"\n=== Query Preprocessing ===")
-            print(f"Original query: '{query}'")
-            print(f"Initial terms: {terms}")
-        
-        # Try to split compound words first
-        expanded_terms = []
-        for term in terms:
-            # Try splitting if word is long and has no spaces
-            if len(term) >= 8:
-                if verbose:
-                    print(f"\nTrying to split compound word: '{term}'")
-                split_result = self.try_split_compound_word(term)
-                if split_result:
-                    if verbose:
-                        print(f"  ✓ Split successful: {split_result}")
-                    expanded_terms.extend(split_result)
-                    continue
-                else:
-                    if verbose:
-                        print(f"  ✗ Split failed, keeping as-is")
-            expanded_terms.append(term)
-        
-        terms = expanded_terms
-        
-        if verbose:
-            print(f"\nAfter splitting: {terms}")
-        
         # Spelling correction with confidence
         corrected_terms = []
         corrections = []
         correction_confidence = []
         
         for term in terms:
-            if verbose:
-                print(f"\nCorrecting '{term}'...")
             corrected, was_correct, distance = self.correct_spelling(term)
-            if verbose:
-                print(f"  → '{corrected}' (exact={was_correct}, dist={distance})")
             corrected_terms.append(corrected)
             
             if not was_correct:
                 corrections.append(f"{term}→{corrected}")
                 correction_confidence.append(distance)
         
-        if verbose:
-            print(f"\nCorrected terms: {corrected_terms}")
-            print(f"Corrections made: {corrections}")
-            print(f"Confidence scores: {correction_confidence}")
-        
         # Query expansion (only if corrections look good)
         if all(conf < 3 for conf in correction_confidence):
-            if verbose:
-                print(f"\n✓ Corrections look good (all < 3), expanding query...")
             expanded_terms = self.expand_query(corrected_terms)
-            if verbose:
-                print(f"  Expanded to: {expanded_terms}")
         else:
             # If corrections are uncertain, don't expand
-            if verbose:
-                print(f"\n✗ Corrections uncertain, not expanding")
             expanded_terms = corrected_terms
-        
-        if verbose:
-            print(f"\nFinal query terms: {expanded_terms}")
-            print("=" * 50)
         
         return expanded_terms, corrections
     
@@ -738,7 +600,7 @@ class ImprovedDictionaryBM25Ranker:
     def search(self, query, top_k=10, verbose=False):
         """Main search function with improved correction and semantic filtering"""
         # Preprocess
-        query_terms, corrections = self.preprocess_query(query, verbose=verbose)
+        query_terms, corrections = self.preprocess_query(query)
         
         if not query_terms:
             return []
