@@ -1,0 +1,12 @@
+streamlit==1.52.1
+pandas==2.3.3
+numpy==2.0.2
+nltk==3.9.2
+rank-bm25==0.2.2
+gensim==4.4.0
+Sastrawi==1.0.1
+openpyxl==3.1.5
+reportlab==4.4.7
+python-dotenv==1.2.1
+python-dateutil==2.9.0.post0
+pytz==2025.2
