@@ -1,3 +1,209 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:41560d6727addc916aacd8d7f79e2bad8f6c63d4eac2b65ed5c05c341cb26943
-size 3747
+{
+  "analisis sentimen": [
+    "doc_2658",
+    "doc_2696",
+    "doc_2",
+    "doc_834",
+    "doc_2385",
+    "doc_2547",
+    "doc_119",
+    "doc_2690",
+    "doc_2422",
+    "doc_2482"
+  ],
+  "machine learning": [
+    "doc_2671",
+    "doc_119",
+    "doc_2727",
+    "doc_2624",
+    "doc_2702",
+    "doc_2612",
+    "doc_121",
+    "doc_2698",
+    "doc_21",
+    "doc_2707"
+  ],
+  "model peramalan": [
+    "doc_8",
+    "doc_819",
+    "doc_59",
+    "doc_2048",
+    "doc_11"
+  ],
+  "user interface": [
+    "doc_125",
+    "doc_2710",
+    "doc_2741",
+    "doc_2576",
+    "doc_1193",
+    "doc_2628",
+    "doc_2491",
+    "doc_2714"
+  ],
+  "chatbot": [
+    "doc_2539",
+    "doc_90",
+    "doc_38",
+    "doc_6"
+  ],
+  "pemodelan topik": [
+    "doc_2507",
+    "doc_2646",
+    "doc_2537",
+    "doc_155",
+    "doc_2446"
+  ],
+  "peringkasan teks": [
+    "doc_2501",
+    "doc_826",
+    "doc_2367",
+    "doc_1781"
+  ],
+  "sistem rekomendasi": [
+    "doc_2566",
+    "doc_2259",
+    "doc_2285",
+    "doc_2553",
+    "doc_2390",
+    "doc_2206",
+    "doc_2667",
+    "doc_2304",
+    "doc_2232",
+    "doc_2734"
+  ],
+  "klasifikasi musik": [
+    "doc_2511",
+    "doc_2740",
+    "doc_2639"
+  ],
+  "ontologi": [
+    "doc_2483",
+    "doc_2690",
+    "doc_2705",
+    "doc_2683",
+    "doc_2667",
+    "doc_2688",
+    "doc_2654",
+    "doc_1767",
+    "doc_2360",
+    "doc_2432"
+  ],
+  "manajemen pengetahuan": [
+    "doc_1748",
+    "doc_2709",
+    "doc_2431",
+    "doc_1767",
+    "doc_2527",
+    "doc_2376",
+    "doc_2538"
+  ],
+  "pengamanan citra digital": [
+    "doc_2442"
+  ],
+  "enkripsi data": [
+    "doc_2633",
+    "doc_2682",
+    "doc_2693",
+    "doc_2302"
+  ],
+  "keamanan data": [
+    "doc_58",
+    "doc_1752"
+  ],
+  "sistem iot": [
+    "doc_2749"
+  ],
+  "sistem deteksi penyakit": [
+    "doc_2733"
+  ],
+  "klasifikasi penyakit": [
+    "doc_2706",
+    "doc_2373",
+    "doc_2669",
+    "doc_2452",
+    "doc_2399",
+    "doc_2389",
+    "doc_2381",
+    "doc_1338",
+    "doc_2675",
+    "doc_2409"
+  ],
+  "optimasi algoritma": [
+    "doc_2552",
+    "doc_2459",
+    "doc_2526",
+    "doc_2485",
+    "doc_2479",
+    "doc_2454",
+    "doc_2624"
+  ],
+  "aplikasi mobile": [
+    "doc_160",
+    "doc_139",
+    "doc_2601",
+    "doc_105",
+    "doc_2387",
+    "doc_113",
+    "doc_1046",
+    "doc_2725",
+    "doc_2312",
+    "doc_2724"
+  ],
+  "business intelligence": [
+    "doc_2625",
+    "doc_2623",
+    "doc_2536",
+    "doc_50",
+    "doc_3",
+    "doc_435",
+    "doc_2539"
+  ],
+  "user centered design": [
+    "doc_2591",
+    "doc_2554",
+    "doc_2530",
+    "doc_2557",
+    "doc_2491",
+    "doc_2576",
+    "doc_2721",
+    "doc_2714",
+    "doc_2741",
+    "doc_2415"
+  ],
+  "desain aplikasi": [
+    "doc_165",
+    "doc_2632",
+    "doc_2660",
+    "doc_143",
+    "doc_15",
+    "doc_112",
+    "doc_2576",
+    "doc_56",
+    "doc_1046",
+    "doc_77"
+  ],
+  "user interface aplikasi": [
+    "doc_125",
+    "doc_2741",
+    "doc_2576",
+    "doc_2491",
+    "doc_77",
+    "doc_139",
+    "doc_2724",
+    "doc_2530",
+    "doc_2534",
+    "doc_2581"
+  ],
+  "sistem pencarian": [
+    "doc_2548",
+    "doc_2705",
+    "doc_2248",
+    "doc_2469",
+    "doc_2692",
+    "doc_2432",
+    "doc_2307",
+    "doc_2223",
+    "doc_2268",
+    "doc_2555"
+  ]
+}
