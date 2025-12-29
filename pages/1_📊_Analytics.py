@@ -78,77 +78,23 @@ def render_search_stats(history):
     with tab4:
         render_result_distribution(history)
 
-
-# def render_search_trends(history):
-#     """Render search trends over time"""
-#     if not history:
-#         st.info("Belum ada data untuk tren")
-#         return
-    
-#     # Create DataFrame
-#     df_data = []
-#     for entry in history:
-#         dt = datetime.fromisoformat(entry['timestamp'])
-#         df_data.append({
-#             'date': dt.date(),
-#             'hour': dt.hour,
-#             'query': entry['query'],
-#             'results': entry.get('num_results', 0),
-#             'search_time': entry.get('search_time', 0)
-#         })
-    
-#     df = pd.DataFrame(df_data)
-    
-#     # Daily trends
-#     daily_counts = df.groupby('date').size().reset_index(name='count')
-    
-#     col1, col2 = st.columns(2)
-    
-#     with col1:
-#         st.markdown("#### 📅 Tren Harian")
-#         fig = px.line(
-#             daily_counts, 
-#             x='date', 
-#             y='count',
-#             markers=True,
-#             line_shape='spline'
-#         )
-#         fig.update_layout(
-#             xaxis_title="Tanggal",
-#             yaxis_title="Jumlah Pencarian",
-#             plot_bgcolor='rgba(0,0,0,0)',
-#             height=300
-#         )
-#         st.plotly_chart(fig, use_container_width=True)
-    
-#     with col2:
-#         st.markdown("#### 🕐 Distribusi Jam")
-#         hourly_counts = df.groupby('hour').size().reset_index(name='count')
-#         fig = px.bar(
-#             hourly_counts,
-#             x='hour',
-#             y='count',
-#             color='count',
-#             color_continuous_scale='viridis'
-#         )
-#         fig.update_layout(
-#             xaxis_title="Jam (24h)",
-#             yaxis_title="Jumlah Pencarian",
-#             plot_bgcolor='rgba(0,0,0,0)',
-#             height=300
-#         )
-#         st.plotly_chart(fig, use_container_width=True)
-
 def render_search_trends(history):
     """Render search trends over time"""
     if not history:
         st.info("Belum ada data untuk tren")
         return
     
-    # Create DataFrame
+    # Create DataFrame - PARSE sebagai string biasa
     df_data = []
     for entry in history:
-        dt = datetime.fromisoformat(entry['timestamp'])
+        # Parse timestamp tanpa timezone
+        try:
+            # Format: '2025-12-26 17:39:39'
+            dt = datetime.strptime(entry['timestamp'], '%Y-%m-%d %H:%M:%S')
+        except:
+            # Fallback untuk format lama
+            dt = datetime.fromisoformat(entry['timestamp'].replace('Z', ''))
+        
         df_data.append({
             'date': dt.date(),
             'hour': dt.hour,
