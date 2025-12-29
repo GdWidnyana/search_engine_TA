@@ -1,21 +1,15 @@
-"""
-Streamlit Search Engine Application
-Modern, elegant, and feature-rich interface
-UPDATED: Using Dictionary BM25 (Blocks + Front Coding)
-"""
-
 import streamlit as st
 import sys
 import time
+import pytz
 from pathlib import Path
 from datetime import datetime
 
 # Add scripts directory to path
-SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "scripts"
-sys.path.insert(0, str(SCRIPTS_DIR))
+# SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "scripts"
+# sys.path.insert(0, str(SCRIPTS_DIR))
 
-# UPDATED: Import ImprovedDictionaryBM25Ranker with better spelling correction
-from bm25_with_dictionary_improved import ImprovedDictionaryBM25Ranker
+from bm25_tuned_v2 import TunedDictionaryBM25Ranker
 from utils import (
     load_search_history,
     save_search_history,
@@ -44,7 +38,7 @@ st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 @st.cache_resource
 def load_ranker():
     """Load Improved Dictionary BM25 ranker (cached) - UPDATED"""
-    return ImprovedDictionaryBM25Ranker(BLOCKS_PATH, FRONTCODED_PATH, INDEX_PATH)
+    return TunedDictionaryBM25Ranker(BLOCKS_PATH, FRONTCODED_PATH, INDEX_PATH)
 
 
 def initialize_session_state():
@@ -77,7 +71,7 @@ def render_header():
     st.markdown("""
         <div class="main-header">
             <h1>🔍 Skripsi Search Engine</h1>
-            <p class="subtitle">Sistem pencarian skripsi berbasis BM25 dengan Dictionary Optimization</p>
+            <p class="subtitle">Sistem pencarian skripsi berbasis BM25</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -98,11 +92,15 @@ def render_search_box(ranker):
     with col2:
         search_clicked = st.button("🔍 Cari", use_container_width=True, type="primary")
     
-    # Example queries
+    # Example queries - Equal width with flexbox
     st.markdown("**Contoh query:**")
-    cols = st.columns(len(EXAMPLE_QUERIES))
+    
+    # Create buttons in a flex container
+    cols = st.columns(5, gap="small")
+    
     for i, example in enumerate(EXAMPLE_QUERIES):
         with cols[i]:
+            # Use container with fixed width
             if st.button(f"💡 {example}", key=f"example_{i}", use_container_width=True):
                 st.session_state.query = example
                 st.rerun()
@@ -114,6 +112,28 @@ def render_search_options():
     """Render search options sidebar"""
     with st.sidebar:
         st.markdown("### ⚙️ Pengaturan Pencarian")
+        
+        # Timezone selector - NEW!
+        st.markdown("#### ⏰ Timezone")
+        if 'user_timezone' not in st.session_state:
+            st.session_state.user_timezone = 'Asia/Makassar'  # Default WITA
+        
+        tz_options = {
+            'Asia/Jakarta': 'WIB (GMT+7)',
+            'Asia/Makassar': 'WITA (GMT+8)',
+            'Asia/Jayapura': 'WIT (GMT+9)'
+        }
+        
+        selected_tz = st.selectbox(
+            "Pilih timezone Anda",
+            options=list(tz_options.keys()),
+            format_func=lambda x: tz_options[x],
+            index=1,  # Default to WITA
+            help="Timezone untuk menampilkan waktu yang akurat"
+        )
+        st.session_state.user_timezone = selected_tz
+        
+        st.markdown("---")
         
         # Number of results
         top_k = st.number_input(
@@ -229,14 +249,22 @@ def render_result_card(result, index, advanced_mode):
 
 
 def save_to_favorites(result):
-    """Save result to favorites"""
+    """Save result to favorites with user's timezone"""
     from pages_utils import load_favorites, save_favorites_func
+    import pytz
     
     favorites = load_favorites()
     
     # Check if already in favorites
     if result['doc_id'] not in [f['doc_id'] for f in favorites]:
-        result['saved_at'] = datetime.now().isoformat()
+        # Save with user's timezone
+        try:
+            user_tz = pytz.timezone(st.session_state.get('user_timezone', 'Asia/Makassar'))
+            timestamp = datetime.now(user_tz).isoformat()
+        except:
+            timestamp = datetime.now().isoformat()
+        
+        result['saved_at'] = timestamp
         favorites.append(result)
         save_favorites_func(favorites)
 
@@ -377,10 +405,17 @@ def main():
                 
                 st.session_state.current_results = results
                 
-                # Save to history
+                # Save to history with user's timezone
+                try:
+                    import pytz
+                    user_tz = pytz.timezone(st.session_state.get('user_timezone', 'Asia/Makassar'))
+                    timestamp = datetime.now(user_tz).isoformat()
+                except:
+                    timestamp = datetime.now().isoformat()
+                
                 st.session_state.search_history.append({
                     'query': query,
-                    'timestamp': datetime.now().isoformat(),
+                    'timestamp': timestamp,
                     'num_results': len(results),
                     'search_time': search_time
                 })
@@ -406,22 +441,152 @@ def main():
                 </div>
             """, unsafe_allow_html=True)
         
-        # Export button
-        col1, col2, col3 = st.columns([1, 1, 4])
+        # Export buttons - PDF, Excel, and Statistics (equal width)
+        col1, col2, col3, col4 = st.columns([1, 1, 1, 2])
         
         with col1:
-            import json
-            json_str = json.dumps(st.session_state.current_results, indent=2, ensure_ascii=False)
-            st.download_button(
-                "📥 Export JSON",
-                json_str,
-                f"search_results_{st.session_state.query.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
-                "application/json",
-                use_container_width=True
-            )
+            # PDF Export
+            def create_pdf():
+                from io import BytesIO
+                from reportlab.lib.pagesizes import A4
+                from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                from reportlab.lib.units import inch
+                from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
+                from reportlab.lib import colors
+                
+                buffer = BytesIO()
+                doc = SimpleDocTemplate(buffer, pagesize=A4, 
+                                       rightMargin=30, leftMargin=30,
+                                       topMargin=30, bottomMargin=18)
+                
+                # Container for PDF elements
+                elements = []
+                styles = getSampleStyleSheet()
+                
+                # Custom styles
+                title_style = ParagraphStyle(
+                    'CustomTitle',
+                    parent=styles['Heading1'],
+                    fontSize=16,
+                    textColor=colors.HexColor('#667eea'),
+                    spaceAfter=12,
+                    alignment=1  # Center
+                )
+                
+                # Title
+                title = Paragraph(f"Hasil Pencarian: {st.session_state.query}", title_style)
+                elements.append(title)
+                elements.append(Spacer(1, 0.2*inch))
+                
+                # Info
+                info_text = f"Jumlah hasil: {len(st.session_state.current_results)} | " \
+                           f"Waktu: {st.session_state.search_time*1000:.2f} ms | " \
+                           f"Tanggal: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+                info = Paragraph(info_text, styles['Normal'])
+                elements.append(info)
+                elements.append(Spacer(1, 0.3*inch))
+                
+                # Results
+                for idx, result in enumerate(st.session_state.current_results, 1):
+                    # Result number and title
+                    result_title = Paragraph(
+                        f"<b>{idx}. {result.get('title', 'N/A')}</b>",
+                        styles['Heading3']
+                    )
+                    elements.append(result_title)
+                    elements.append(Spacer(1, 0.1*inch))
+                    
+                    # Details
+                    details = [
+                        f"<b>Score:</b> {result.get('score', 0):.2f}",
+                        f"<b>Authors:</b> {result.get('authors', 'N/A')}",
+                        f"<b>Keywords:</b> {result.get('keywords', 'N/A')[:100]}...",
+                        f"<b>Abstract:</b> {result.get('abstract', 'N/A')[:200]}..."
+                    ]
+                    
+                    for detail in details:
+                        elements.append(Paragraph(detail, styles['Normal']))
+                        elements.append(Spacer(1, 0.05*inch))
+                    
+                    elements.append(Spacer(1, 0.2*inch))
+                    
+                    # Page break every 3 results
+                    if idx % 3 == 0 and idx < len(st.session_state.current_results):
+                        elements.append(PageBreak())
+                
+                # Build PDF
+                doc.build(elements)
+                buffer.seek(0)
+                return buffer
+            
+            try:
+                pdf_buffer = create_pdf()
+                st.download_button(
+                    "📄 Download PDF",
+                    pdf_buffer,
+                    f"search_results_{st.session_state.query.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                    "application/pdf",
+                    use_container_width=True
+                )
+            except Exception as e:
+                st.error(f"Error PDF: {str(e)}")
         
         with col2:
-            if st.button("📊 Lihat Statistik", use_container_width=True):
+            # Excel Export
+            def create_excel():
+                import pandas as pd
+                from io import BytesIO
+                
+                # Prepare data
+                data = []
+                for idx, result in enumerate(st.session_state.current_results, 1):
+                    data.append({
+                        'No': idx,
+                        'Title': result.get('title', 'N/A'),
+                        'Score': round(result.get('score', 0), 2),
+                        'Authors': result.get('authors', 'N/A'),
+                        'Keywords': result.get('keywords', 'N/A'),
+                        'Abstract': result.get('abstract', 'N/A')[:200] + '...',
+                        'Domain': result.get('domain', 'N/A'),
+                        'Specificity': result.get('specificity', 'N/A')
+                    })
+                
+                df = pd.DataFrame(data)
+                
+                # Create Excel file
+                buffer = BytesIO()
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    df.to_excel(writer, index=False, sheet_name='Search Results')
+                    
+                    # Get workbook and worksheet
+                    workbook = writer.book
+                    worksheet = writer.sheets['Search Results']
+                    
+                    # Adjust column widths
+                    for idx, col in enumerate(df.columns):
+                        max_length = max(
+                            df[col].astype(str).map(len).max(),
+                            len(col)
+                        )
+                        worksheet.column_dimensions[chr(65 + idx)].width = min(max_length + 2, 50)
+                
+                buffer.seek(0)
+                return buffer
+            
+            try:
+                excel_buffer = create_excel()
+                st.download_button(
+                    "📊 Download Excel",
+                    excel_buffer,
+                    f"search_results_{st.session_state.query.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+            except Exception as e:
+                st.error(f"Error Excel: {str(e)}")
+        
+        with col3:
+            if st.button("📈 Lihat Statistik", use_container_width=True):
                 st.session_state.show_stats = not st.session_state.show_stats
                 st.rerun()
         
@@ -448,7 +613,7 @@ def main():
     st.markdown("---")
     st.markdown("""
         <div style='text-align: center; color: #666; padding: 20px;'>
-            <p>Skripsi Search Engine v2.0 | Powered by Dictionary BM25</p>
+            <p>Skripsi Search Engine v1.0 | Developed by Team 4</p>
             <p>💡 Tips: Gunakan kata kunci spesifik untuk hasil lebih akurat</p>
         </div>
     """, unsafe_allow_html=True)
