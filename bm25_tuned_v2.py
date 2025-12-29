@@ -20,11 +20,6 @@ TITLE_BOOST = 8.0
 KEYWORD_BOOST = 6.0
 ABSTRACT_BOOST = 1.0
 
-# Result limiting
-MAX_RESULTS_SPECIFIC = 20
-MAX_RESULTS_MODERATE = 35
-MAX_RESULTS_GENERIC = 50
-
 # Score thresholds
 MIN_SCORE_THRESHOLD = 5.0
 
@@ -240,6 +235,8 @@ class TunedDictionaryBM25Ranker:
             'sentimn': 'sentimen',
             'peringksn': 'peringkasan',
             'peringkasn': 'peringkasan',
+            'chtbot': 'chatbot',
+            'chatbot': 'chatbot',
             
             # System terms
             'sistem': 'sistem',
@@ -248,6 +245,8 @@ class TunedDictionaryBM25Ranker:
             'rekomndsi': 'rekomendasi',
             'apliksi': 'aplikasi',
             'aplikas': 'aplikasi',
+            'implementsi': 'implementasi',
+            'implementasi': 'implementasi',
             
             # Security terms
             'enkripsi': 'enkripsi',
@@ -439,7 +438,7 @@ class TunedDictionaryBM25Ranker:
         covered = sum(1 for t in significant_terms if t in retrieved_terms)
         return covered / len(significant_terms)
     
-    def search(self, query, top_k=100, verbose=False):
+    def search(self, query, top_k=10, verbose=False):
         """Search with tuned parameters + wildcard support"""
         # Tokenize and clean (includes repeated char normalization)
         query_terms = self._tokenize(query)
@@ -448,6 +447,7 @@ class TunedDictionaryBM25Ranker:
             print(f"\n[TUNED BM25 SEARCH + WILDCARD]")
             print(f"Query: {query}")
             print(f"Tokenized: {query_terms}")
+            print(f"Requested top_k: {top_k}")
         
         # Spelling correction (skip wildcards)
         corrected_terms = []
@@ -526,14 +526,8 @@ class TunedDictionaryBM25Ranker:
         # Sort by score
         sorted_docs = sorted(filtered_docs.items(), key=lambda x: x[1], reverse=True)
         
-        # Determine result limit
-        num_query_terms = len([t for t in corrected_terms if t not in GENERIC_TERMS])
-        if num_query_terms >= 3:
-            limit = MAX_RESULTS_SPECIFIC
-        elif num_query_terms == 2:
-            limit = MAX_RESULTS_MODERATE
-        else:
-            limit = MAX_RESULTS_GENERIC
+        # Use the top_k parameter directly (default is 10)
+        limit = top_k
         
         # Format results
         results = []
@@ -556,7 +550,7 @@ class TunedDictionaryBM25Ranker:
         
         if verbose:
             print(f"\nFiltered: {len(doc_scores)} → {len(filtered_docs)} docs")
-            print(f"Returning top {len(results)} results (limit: {limit})")
+            print(f"Returning top {len(results)} results (requested: {limit})")
             if results:
                 top_scores = [f"{r['score']:.2f}" for r in results[:5]]
                 print(f"Top 5 scores: {top_scores}")
@@ -601,11 +595,12 @@ def main():
         "ma?hine learning",             # Wildcard ?
         "sistem rekomen*",              # Wildcard at end
         "klasifikasiiiiiii penyakittttt",  # Multiple repeated chars
+        "chtbot implementsi",           # Typos
     ]
     
     for query in test_queries:
         print(f"\nQuery: '{query}'")
-        results = ranker.search(query, top_k=3, verbose=True)
+        results = ranker.search(query, top_k=10, verbose=True)
         print(f"\nTop 3 Results:")
         for i, r in enumerate(results[:3], 1):
             print(f"  {i}. {r['title'][:60]}... (score: {r['score']:.2f})")
