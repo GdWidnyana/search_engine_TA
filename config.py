@@ -1,16 +1,14 @@
-"""
-Configuration for Streamlit Application
-Updated to use Blocked Dictionary + Front Coding
-"""
-
 from pathlib import Path
-#C:\Users\Widnyana\Documents\TUGAS AKHIR\Program TA\streamlit_ir\data\blocks.json
-# Paths - UPDATED untuk menggunakan dictionary
-BASE_DIR = Path(__file__).resolve().parent.parent
-INDEX_PATH = BASE_DIR / "streamlit_ir/data/index.json"  # Masih digunakan untuk postings
-BLOCKS_PATH = BASE_DIR / "streamlit_ir/data/blocks.json"  # NEW
-FRONTCODED_PATH = BASE_DIR / "streamlit_ir/data/frontcoded.json"  # NEW
-HISTORY_PATH = BASE_DIR / "streamlit_ir/data/search_history.json"
+import os
+
+# OPTION A: Path relatif dari file saat ini (direkomendasikan)
+BASE_DIR = Path(__file__).parent  # Parent dari file ini
+DATA_DIR = BASE_DIR / "data"
+
+INDEX_PATH = DATA_DIR / "index.json"
+BLOCKS_PATH = DATA_DIR / "blocks.json"
+FRONTCODED_PATH = DATA_DIR / "frontcoded.json"
+HISTORY_PATH = DATA_DIR / "search_history.json"
 
 # Page configuration
 PAGE_CONFIG = {
