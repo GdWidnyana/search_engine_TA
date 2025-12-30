@@ -1,3 +1,5 @@
 data/*.json filter=lfs diff=lfs merge=lfs -text
 data/eval_v2.json filter=lfs diff=lfs merge=lfs -text
 data/eval_v1.json filter=lfs diff=lfs merge=lfs -text
+data/permuterm.json filter=lfs diff=lfs merge=lfs -text
+data/kgram.json filter=lfs diff=lfs merge=lfs -text
