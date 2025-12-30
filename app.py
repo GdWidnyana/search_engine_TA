@@ -43,6 +43,10 @@ def load_ranker():
 
 def initialize_session_state():
     """Initialize session state variables"""
+
+    if 'query_info' not in st.session_state:
+        st.session_state.query_info = None
+
     if 'search_history' not in st.session_state:
         st.session_state.search_history = load_search_history()
     
@@ -194,6 +198,30 @@ def render_search_tips():
         for tip in SEARCH_TIPS:
             st.markdown(f"• {tip}")
 
+def render_wildcard_expansion():
+    qi = st.session_state.query_info
+    if not qi or not qi["is_wildcard"]:
+        return
+
+    expanded = qi["expanded_terms"]
+
+    if expanded:
+        with st.expander("✨ Ekspansi Wildcard"):
+            st.markdown("Query diperluas menjadi:")
+            for term in expanded[:30]:
+                st.markdown(f"- `{term}`")
+
+def render_query_feedback():
+    qi = st.session_state.query_info
+    if not qi:
+        return
+
+    original = qi["original_query"]
+    corrected = " ".join(qi["corrected_terms"])
+
+    # Jika ada koreksi
+    if corrected.lower() != original.lower():
+        st.info(f"🔎 **Maksud Anda:** `{corrected}`")
 
 def render_result_card(result, index, advanced_mode):
     """Render single result card - DENGAN SEMUA KEYWORD"""
@@ -367,7 +395,8 @@ def main():
     
     # Search tips
     render_search_tips()
-    
+    render_query_feedback()
+    render_wildcard_expansion()
     # Perform search
     if search_clicked and query:
         st.session_state.query = query
@@ -376,7 +405,13 @@ def main():
             try:
                 # Measure search time
                 start_time = time.time()
-                results = ranker.search(query, top_k=options['top_k'], verbose=False)
+                search_output = ranker.search(query, top_k=options['top_k'], verbose=False)
+
+                results = search_output["results"]
+                query_info = search_output["query_info"]
+
+                st.session_state.query_info = query_info
+
                 search_time = time.time() - start_time
                 st.session_state.search_time = search_time
                 
