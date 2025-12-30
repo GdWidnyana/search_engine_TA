@@ -5,11 +5,7 @@ import pytz
 from pathlib import Path
 from datetime import datetime
 
-# Add scripts directory to path
-# SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "scripts"
-# sys.path.insert(0, str(SCRIPTS_DIR))
-
-from bm25_tuned_v1 import ImprovedDictionaryBM25Ranker
+from bm25_tuned_v2 import TunedDictionaryBM25Ranker
 from utils import (
     load_search_history,
     save_search_history,
@@ -18,8 +14,8 @@ from utils import (
 )
 from config import (
     INDEX_PATH,
-    BLOCKS_PATH,  # NEW
-    FRONTCODED_PATH,  # NEW
+    BLOCKS_PATH,
+    FRONTCODED_PATH,
     PAGE_CONFIG,
     CUSTOM_CSS,
     SEARCH_TIPS,
@@ -37,12 +33,16 @@ st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 @st.cache_resource
 def load_ranker():
-    """Load Improved Dictionary BM25 ranker (cached) - UPDATED"""
-    return ImprovedDictionaryBM25Ranker(BLOCKS_PATH, FRONTCODED_PATH, INDEX_PATH)
+    """Load Improved Dictionary BM25 ranker (cached)"""
+    return TunedDictionaryBM25Ranker(BLOCKS_PATH, FRONTCODED_PATH, INDEX_PATH)
 
 
 def initialize_session_state():
     """Initialize session state variables"""
+
+    if 'query_info' not in st.session_state:
+        st.session_state.query_info = None
+
     if 'search_history' not in st.session_state:
         st.session_state.search_history = load_search_history()
     
@@ -61,7 +61,6 @@ def initialize_session_state():
     if 'search_time' not in st.session_state:
         st.session_state.search_time = 0
     
-    # Tambah state untuk detail modal
     if 'show_detail' not in st.session_state:
         st.session_state.show_detail = None
 
@@ -71,7 +70,7 @@ def render_header():
     st.markdown("""
         <div class="main-header">
             <h1>🔍 Skripsi Search Engine</h1>
-            <p class="subtitle">Sistem pencarian skripsi berbasis BM25</p>
+            <p class="subtitle">Sistem pencarian skripsi berbasis BM25 dengan Word Segmentation</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -84,7 +83,7 @@ def render_search_box(ranker):
         query = st.text_input(
             "Cari skripsi...",
             value=st.session_state.query,
-            placeholder="Contoh: machine learning, sistem rekomendasi, user interface",
+            placeholder="Contoh: machine learning, analisissentimen (tanpa spasi ok!)",
             label_visibility="collapsed",
             key="search_input"
         )
@@ -92,15 +91,13 @@ def render_search_box(ranker):
     with col2:
         search_clicked = st.button("🔍 Cari", use_container_width=True, type="primary")
     
-    # Example queries - Equal width with flexbox
+    # Example queries
     st.markdown("**Contoh query:**")
     
-    # Create buttons in a flex container
     cols = st.columns(5, gap="small")
     
     for i, example in enumerate(EXAMPLE_QUERIES):
         with cols[i]:
-            # Use container with fixed width
             if st.button(f"💡 {example}", key=f"example_{i}", use_container_width=True):
                 st.session_state.query = example
                 st.rerun()
@@ -113,10 +110,10 @@ def render_search_options():
     with st.sidebar:
         st.markdown("### ⚙️ Pengaturan Pencarian")
         
-        # Timezone selector - NEW!
+        # Timezone selector
         st.markdown("#### ⏰ Timezone")
         if 'user_timezone' not in st.session_state:
-            st.session_state.user_timezone = 'Asia/Makassar'  # Default WITA
+            st.session_state.user_timezone = 'Asia/Makassar'
         
         tz_options = {
             'Asia/Jakarta': 'WIB (GMT+7)',
@@ -128,7 +125,7 @@ def render_search_options():
             "Pilih timezone Anda",
             options=list(tz_options.keys()),
             format_func=lambda x: tz_options[x],
-            index=1,  # Default to WITA
+            index=1,
             help="Timezone untuk menampilkan waktu yang akurat"
         )
         st.session_state.user_timezone = selected_tz
@@ -191,12 +188,52 @@ def render_search_options():
 def render_search_tips():
     """Render search tips"""
     with st.expander("💡 Tips Pencarian"):
+        st.markdown("**Fitur Baru: Word Segmentation!**")
+        st.markdown("• Tulis query tanpa spasi: `analisissentimen` → otomatis jadi `analisis sentimen`")
+        st.markdown("• Wildcard: `sentim*` atau `ma?hine`")
+        st.markdown("• Repeated chars: `sentimennnn` → otomatis jadi `sentimen`")
+        st.markdown("---")
         for tip in SEARCH_TIPS:
             st.markdown(f"• {tip}")
 
 
+def render_query_feedback():
+    """Render query processing feedback"""
+    qi = st.session_state.query_info
+    if not qi:
+        return
+
+    original = qi["original_query"]
+    
+    # Word Segmentation feedback
+    if qi.get("segmented_query"):
+        st.success(f"✂️ **Query dipisah:** `{original}` → `{qi['segmented_query']}`")
+    
+    # Spelling correction feedback
+    corrected = " ".join(qi["corrected_terms"])
+    if corrected.lower() != original.lower() and not qi.get("segmented_query"):
+        st.info(f"🔎 **Maksud Anda:** `{corrected}`")
+
+
+def render_wildcard_expansion():
+    """Render wildcard expansion info"""
+    qi = st.session_state.query_info
+    if not qi or not qi["is_wildcard"]:
+        return
+
+    expanded = qi["expanded_terms"]
+
+    if expanded:
+        with st.expander("✨ Ekspansi Wildcard"):
+            st.markdown("Query diperluas menjadi:")
+            for term in expanded[:30]:
+                st.markdown(f"- `{term}`")
+            if len(expanded) > 30:
+                st.markdown(f"... dan {len(expanded) - 30} kata lainnya")
+
+
 def render_result_card(result, index, advanced_mode):
-    """Render single result card - DENGAN SEMUA KEYWORD"""
+    """Render single result card"""
     with st.container():
         st.markdown(f"""
             <div class="result-card">
@@ -206,7 +243,7 @@ def render_result_card(result, index, advanced_mode):
                 </div>
         """, unsafe_allow_html=True)
         
-        # Keywords - TAMPILKAN SEMUA
+        # Keywords
         if result.get('keywords'):
             keywords = result['keywords'].split()
             keyword_badges = " ".join([f'<span class="keyword-badge">{kw}</span>' for kw in keywords])
@@ -257,7 +294,6 @@ def save_to_favorites(result):
     
     # Check if already in favorites
     if result['doc_id'] not in [f['doc_id'] for f in favorites]:
-        # Save with user's timezone
         try:
             user_tz = pytz.timezone(st.session_state.get('user_timezone', 'Asia/Makassar'))
             timestamp = datetime.now(user_tz).isoformat()
@@ -300,7 +336,6 @@ def render_search_history():
         st.markdown("### 📜 Riwayat Pencarian")
         
         if st.session_state.search_history:
-            # Show last 5 searches
             for entry in st.session_state.search_history[-5:][::-1]:
                 query = entry['query']
                 timestamp = format_timestamp(entry['timestamp'])
@@ -320,19 +355,18 @@ def main():
     """Main application"""
     initialize_session_state()
     
-    # PERIKSA APAKAH HARUS MENAMPILKAN DETAIL
+    # Check if showing detail
     if st.session_state.show_detail:
         st.markdown("---")
         render_document_detail(st.session_state.show_detail)
         
-        # Tombol untuk kembali ke hasil pencarian
         if st.button("❌ Tutup Detail Skripsi", use_container_width=True, type="secondary"):
             st.session_state.show_detail = None
             st.rerun()
         
         return
     
-    # Load ranker - UPDATED
+    # Load ranker
     try:
         ranker = load_ranker()
         
@@ -367,6 +401,8 @@ def main():
     
     # Search tips
     render_search_tips()
+    render_query_feedback()
+    render_wildcard_expansion()
     
     # Perform search
     if search_clicked and query:
@@ -376,7 +412,16 @@ def main():
             try:
                 # Measure search time
                 start_time = time.time()
-                results = ranker.search(query, top_k=options['top_k'], verbose=False)
+                
+                # FIXED: search() returns dictionary
+                search_output = ranker.search(query, top_k=options['top_k'], verbose=False)
+                
+                # Extract results and query_info from dictionary
+                results = search_output["results"]
+                query_info = search_output["query_info"]
+                
+                st.session_state.query_info = query_info
+                
                 search_time = time.time() - start_time
                 st.session_state.search_time = search_time
                 
@@ -423,6 +468,8 @@ def main():
                 
             except Exception as e:
                 st.error(f"❌ Error during search: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
                 st.session_state.current_results = []
     
     # Display results
@@ -441,7 +488,7 @@ def main():
                 </div>
             """, unsafe_allow_html=True)
         
-        # Export buttons - PDF, Excel, and Statistics (equal width)
+        # Export buttons
         col1, col2, col3, col4 = st.columns([1, 1, 1, 2])
         
         with col1:
@@ -459,26 +506,22 @@ def main():
                                        rightMargin=30, leftMargin=30,
                                        topMargin=30, bottomMargin=18)
                 
-                # Container for PDF elements
                 elements = []
                 styles = getSampleStyleSheet()
                 
-                # Custom styles
                 title_style = ParagraphStyle(
                     'CustomTitle',
                     parent=styles['Heading1'],
                     fontSize=16,
                     textColor=colors.HexColor('#667eea'),
                     spaceAfter=12,
-                    alignment=1  # Center
+                    alignment=1
                 )
                 
-                # Title
                 title = Paragraph(f"Hasil Pencarian: {st.session_state.query}", title_style)
                 elements.append(title)
                 elements.append(Spacer(1, 0.2*inch))
                 
-                # Info
                 info_text = f"Jumlah hasil: {len(st.session_state.current_results)} | " \
                            f"Waktu: {st.session_state.search_time*1000:.2f} ms | " \
                            f"Tanggal: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
@@ -486,9 +529,7 @@ def main():
                 elements.append(info)
                 elements.append(Spacer(1, 0.3*inch))
                 
-                # Results
                 for idx, result in enumerate(st.session_state.current_results, 1):
-                    # Result number and title
                     result_title = Paragraph(
                         f"<b>{idx}. {result.get('title', 'N/A')}</b>",
                         styles['Heading3']
@@ -496,7 +537,6 @@ def main():
                     elements.append(result_title)
                     elements.append(Spacer(1, 0.1*inch))
                     
-                    # Details
                     details = [
                         f"<b>Score:</b> {result.get('score', 0):.2f}",
                         f"<b>Authors:</b> {result.get('authors', 'N/A')}",
@@ -510,11 +550,9 @@ def main():
                     
                     elements.append(Spacer(1, 0.2*inch))
                     
-                    # Page break every 3 results
                     if idx % 3 == 0 and idx < len(st.session_state.current_results):
                         elements.append(PageBreak())
                 
-                # Build PDF
                 doc.build(elements)
                 buffer.seek(0)
                 return buffer
@@ -537,7 +575,6 @@ def main():
                 import pandas as pd
                 from io import BytesIO
                 
-                # Prepare data
                 data = []
                 for idx, result in enumerate(st.session_state.current_results, 1):
                     data.append({
@@ -553,16 +590,13 @@ def main():
                 
                 df = pd.DataFrame(data)
                 
-                # Create Excel file
                 buffer = BytesIO()
                 with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                     df.to_excel(writer, index=False, sheet_name='Search Results')
                     
-                    # Get workbook and worksheet
                     workbook = writer.book
                     worksheet = writer.sheets['Search Results']
                     
-                    # Adjust column widths
                     for idx, col in enumerate(df.columns):
                         max_length = max(
                             df[col].astype(str).map(len).max(),
@@ -613,8 +647,8 @@ def main():
     st.markdown("---")
     st.markdown("""
         <div style='text-align: center; color: #666; padding: 20px;'>
-            <p>Skripsi Search Engine v1.0 | Developed by Team 4</p>
-            <p>💡 Tips: Gunakan kata kunci spesifik untuk hasil lebih akurat</p>
+            <p>Skripsi Search Engine v2.0 | Developed by Team 4</p>
+            <p>💡 Tips: Tulis query tanpa spasi juga bisa! (e.g., "analisissentimen")</p>
         </div>
     """, unsafe_allow_html=True)
 
