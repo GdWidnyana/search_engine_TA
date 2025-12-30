@@ -1,4 +1,3 @@
-#bm25_tuned_v2.py
 import json
 import math
 import re
@@ -434,9 +433,6 @@ class TunedDictionaryBM25Ranker:
     def search(self, query, top_k=100, verbose=False):
         """Search with tuned parameters + wildcard support"""
 
-        # =====================
-        # TOKENIZATION
-        # =====================
         query_terms = self._tokenize(query)
 
         if verbose:
@@ -444,9 +440,6 @@ class TunedDictionaryBM25Ranker:
             print(f"Query: {query}")
             print(f"Tokenized: {query_terms}")
 
-        # =====================
-        # SPELLING CORRECTION
-        # =====================
         corrected_terms = []
         for term in query_terms:
             if self._is_wildcard_query(term):
@@ -459,9 +452,6 @@ class TunedDictionaryBM25Ranker:
                 if verbose and corrected != term:
                     print(f"  Corrected: '{term}' → '{corrected}'")
 
-        # =====================
-        # WILDCARD & EXPANSION
-        # =====================
         is_single_wildcard = (
             len(corrected_terms) == 1 and
             self._is_wildcard_query(corrected_terms[0])
@@ -474,9 +464,6 @@ class TunedDictionaryBM25Ranker:
 
         domain_boost = self._get_domain_boost(expanded_terms)
 
-        # =====================
-        # SCORING
-        # =====================
         doc_scores = defaultdict(float)
         doc_term_matches = defaultdict(set)
 
@@ -511,9 +498,6 @@ class TunedDictionaryBM25Ranker:
                     )
                     doc_term_matches[doc_id].add(term)
 
-        # =====================
-        # FILTERING
-        # =====================
         filtered_docs = {}
         for doc_id, score in doc_scores.items():
             coverage = self._calculate_term_coverage(
@@ -535,9 +519,6 @@ class TunedDictionaryBM25Ranker:
 
         sorted_docs = sorted(filtered_docs.items(), key=lambda x: x[1], reverse=True)
 
-        # =====================
-        # LIMIT
-        # =====================
         num_terms = len([t for t in corrected_terms if t not in GENERIC_TERMS])
         if num_terms >= 3:
             limit = MAX_RESULTS_SPECIFIC
@@ -548,9 +529,6 @@ class TunedDictionaryBM25Ranker:
 
         final_limit = min(limit, top_k)
 
-        # =====================
-        # BUILD RESULTS
-        # =====================
         results = []
         for doc_id, score in sorted_docs[:final_limit]:
             meta = self.doc_metadata.get(doc_id, {})
@@ -563,9 +541,6 @@ class TunedDictionaryBM25Ranker:
                 "abstract": meta.get("abstract", "N/A"),
             })
 
-        # =====================
-        # FINAL RETURN
-        # =====================
         return {
             "results": results,
             "query_info": {
