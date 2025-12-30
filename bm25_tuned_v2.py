@@ -1,15 +1,15 @@
-#bm25_tuned_v2.py
-
 import json
 import math
 import re
 from pathlib import Path
 from collections import defaultdict
+from scripts.wildcard import WildcardExpander
+from scripts.spelling import SpellCorrector
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-BLOCKS_PATH = BASE_DIR / "streamlit_ir/blocks.json"
-FRONTCODED_PATH = BASE_DIR / "streamlit_ir/frontcoded.json"
-INDEX_PATH = BASE_DIR / "streamlit_ir/index.json"
+BASE_DIR = Path(__file__).resolve().parent
+BLOCKS_PATH = BASE_DIR / "data/blocks.json"
+FRONTCODED_PATH = BASE_DIR / "data/frontcoded.json"
+INDEX_PATH = BASE_DIR / "data/index.json"
 
 # BM25 Parameters
 K1 = 1.8
@@ -19,6 +19,11 @@ B = 0.70
 TITLE_BOOST = 8.0
 KEYWORD_BOOST = 6.0
 ABSTRACT_BOOST = 1.0
+
+# Result limiting
+MAX_RESULTS_SPECIFIC = 20
+MAX_RESULTS_MODERATE = 35
+MAX_RESULTS_GENERIC = 50
 
 # Score thresholds
 MIN_SCORE_THRESHOLD = 5.0
@@ -154,6 +159,8 @@ class TunedDictionaryBM25Ranker:
         """Load dictionary and index"""
         print(f"Loading TUNED BM25 dictionary and index...")
         
+        self.wildcard = WildcardExpander()
+        self.spell = SpellCorrector()
         # Load blocks
         with open(blocks_path, 'r') as f:
             self.blocks = json.load(f)
@@ -235,8 +242,6 @@ class TunedDictionaryBM25Ranker:
             'sentimn': 'sentimen',
             'peringksn': 'peringkasan',
             'peringkasn': 'peringkasan',
-            'chtbot': 'chatbot',
-            'chatbot': 'chatbot',
             
             # System terms
             'sistem': 'sistem',
@@ -245,8 +250,6 @@ class TunedDictionaryBM25Ranker:
             'rekomndsi': 'rekomendasi',
             'apliksi': 'aplikasi',
             'aplikas': 'aplikasi',
-            'implementsi': 'implementasi',
-            'implementasi': 'implementasi',
             
             # Security terms
             'enkripsi': 'enkripsi',
@@ -291,34 +294,23 @@ class TunedDictionaryBM25Ranker:
         """Check if term contains wildcard characters"""
         return '*' in term or '?' in term
     
-    def _expand_wildcard(self, pattern):
-        """
-        Expand wildcard pattern to matching terms from vocabulary
-        Example: "sentim*" -> ["sentimen", "sentiment", "sentimental"]
-        """
-        if not self._is_wildcard_query(pattern):
-            return [pattern]
-        
-        # Convert wildcard to regex
-        regex_pattern = wildcard_to_regex(pattern)
-        regex = re.compile(regex_pattern, re.IGNORECASE)
-        
-        # Find matching terms in vocabulary
-        matches = [term for term in self.vocabulary if regex.match(term)]
-        
-        # Limit to top 20 matches to avoid performance issues
-        if len(matches) > 20:
-            # Prioritize by term frequency
-            matches = sorted(matches, key=lambda t: self.term_freq.get(t, 0), reverse=True)[:20]
-        
-        return matches if matches else [pattern]
-    
+    def _expand_wildcard(self, term):
+    # 1. ambil dari permuterm
+        expanded = self.wildcard.expand(term)
+
+    # 2. filter hanya yang ada di vocabulary
+        expanded = [t for t in expanded if t in self.vocabulary]
+
+    # 3. fallback regex kalau permuterm gagal
+        if not expanded:
+            regex = re.compile(wildcard_to_regex(term))
+            expanded = [t for t in self.vocabulary if regex.match(t)]
+
+        return expanded
+
     def _correct_spelling(self, term):
-        """Correct spelling with typo patterns"""
-        # Check exact match in typos
-        if term in self.common_typos:
-            return self.common_typos[term]
-        
+        return self.spell.correct(term)
+
         # Check if term in vocabulary
         if term in self.vocabulary:
             return term
@@ -438,18 +430,16 @@ class TunedDictionaryBM25Ranker:
         covered = sum(1 for t in significant_terms if t in retrieved_terms)
         return covered / len(significant_terms)
     
-    def search(self, query, top_k=10, verbose=False):
+    def search(self, query, top_k=100, verbose=False):
         """Search with tuned parameters + wildcard support"""
-        # Tokenize and clean (includes repeated char normalization)
+
         query_terms = self._tokenize(query)
-        
+
         if verbose:
             print(f"\n[TUNED BM25 SEARCH + WILDCARD]")
             print(f"Query: {query}")
             print(f"Tokenized: {query_terms}")
-            print(f"Requested top_k: {top_k}")
-        
-        # Spelling correction (skip wildcards)
+
         corrected_terms = []
         for term in query_terms:
             if self._is_wildcard_query(term):
@@ -458,99 +448,122 @@ class TunedDictionaryBM25Ranker:
                     print(f"  Wildcard detected: '{term}'")
             else:
                 corrected = self._correct_spelling(term)
-                corrected_terms.append(corrected)
-                if verbose and corrected != term:
-                    print(f"  Corrected: '{term}' → '{corrected}'")
-        
-        # Query expansion (includes wildcard expansion)
+                
+                # Handle segmented words (e.g., "analisissentimen" -> "analisis sentimen")
+                if ' ' in corrected:
+                    # Split dan tambahkan sebagai multiple terms
+                    segments = corrected.split()
+                    corrected_terms.extend(segments)
+                    if verbose:
+                        print(f"  Segmented: '{term}' → {segments}")
+                else:
+                    corrected_terms.append(corrected)
+                    if verbose and corrected != term:
+                        print(f"  Corrected: '{term}' → '{corrected}'")
+
+        is_single_wildcard = (
+            len(corrected_terms) == 1 and
+            self._is_wildcard_query(corrected_terms[0])
+        )
+
         expanded_terms = self._expand_query(corrected_terms)
-        
+
         if verbose:
             print(f"Expanded terms: {expanded_terms[:10]}{'...' if len(expanded_terms) > 10 else ''}")
-        
-        # Get domain boost
+
         domain_boost = self._get_domain_boost(expanded_terms)
-        if verbose:
-            print(f"Domain boost: {domain_boost:.2f}")
-        
-        # Score documents
+
         doc_scores = defaultdict(float)
         doc_term_matches = defaultdict(set)
-        
+
         for term in expanded_terms:
             if term not in self.vocabulary:
-                if verbose:
-                    print(f"  Term '{term}' not in vocabulary")
                 continue
-            
-            # Score from abstract
+
+            # Abstract
             if term in self.index:
-                doc_ids = self._get_doc_ids_from_postings(self.index[term])
-                for doc_id in doc_ids:
-                    score = self._compute_bm25_score(term, doc_id, 'abstract')
-                    doc_scores[doc_id] += score * ABSTRACT_BOOST * domain_boost
+                for doc_id in self._get_doc_ids_from_postings(self.index[term]):
+                    doc_scores[doc_id] += (
+                        self._compute_bm25_score(term, doc_id, 'abstract')
+                        * ABSTRACT_BOOST * domain_boost
+                    )
                     doc_term_matches[doc_id].add(term)
-            
-            # Score from title
+
+            # Title
             if term in self.title_index:
-                doc_ids = self._get_doc_ids_from_postings(self.title_index[term])
-                for doc_id in doc_ids:
-                    score = self._compute_bm25_score(term, doc_id, 'title')
-                    doc_scores[doc_id] += score * TITLE_BOOST * domain_boost
+                for doc_id in self._get_doc_ids_from_postings(self.title_index[term]):
+                    doc_scores[doc_id] += (
+                        self._compute_bm25_score(term, doc_id, 'title')
+                        * TITLE_BOOST * domain_boost
+                    )
                     doc_term_matches[doc_id].add(term)
-            
-            # Score from keywords
+
+            # Keyword
             if term in self.keyword_index:
-                doc_ids = self._get_doc_ids_from_postings(self.keyword_index[term])
-                for doc_id in doc_ids:
-                    score = self._compute_bm25_score(term, doc_id, 'keyword')
-                    doc_scores[doc_id] += score * KEYWORD_BOOST * domain_boost
+                for doc_id in self._get_doc_ids_from_postings(self.keyword_index[term]):
+                    doc_scores[doc_id] += (
+                        self._compute_bm25_score(term, doc_id, 'keyword')
+                        * KEYWORD_BOOST * domain_boost
+                    )
                     doc_term_matches[doc_id].add(term)
-        
-        # Filter by term coverage and score threshold
+
         filtered_docs = {}
         for doc_id, score in doc_scores.items():
             coverage = self._calculate_term_coverage(
-                corrected_terms, 
+                corrected_terms,
                 doc_term_matches[doc_id]
             )
-            
+
+            if is_single_wildcard:
+                filtered_docs[doc_id] = score
+                continue
+
             if score >= MIN_SCORE_THRESHOLD and coverage >= MIN_TERM_COVERAGE:
                 if coverage >= IDEAL_TERM_COVERAGE:
                     score *= 1.3
                 elif coverage >= 0.6:
                     score *= 1.15
-                
+
                 filtered_docs[doc_id] = score
-        
-        # Sort by score
+
         sorted_docs = sorted(filtered_docs.items(), key=lambda x: x[1], reverse=True)
-        
-        # Use the top_k parameter directly (default is 10)
-        limit = top_k
-        
-        # Format results
+
+        num_terms = len([t for t in corrected_terms if t not in GENERIC_TERMS])
+        if num_terms >= 3:
+            limit = MAX_RESULTS_SPECIFIC
+        elif num_terms == 2:
+            limit = MAX_RESULTS_MODERATE
+        else:
+            limit = MAX_RESULTS_GENERIC
+
+        final_limit = min(limit, top_k)
+
         results = []
-        for doc_id, score in sorted_docs[:limit]:
-            metadata = self.doc_metadata.get(doc_id, {})
-            coverage = self._calculate_term_coverage(
-                corrected_terms,
-                doc_term_matches[doc_id]
-            )
-            
+        for doc_id, score in sorted_docs[:final_limit]:
+            meta = self.doc_metadata.get(doc_id, {})
             results.append({
-                'doc_id': doc_id,
-                'score': score,
-                'coverage': coverage,
-                'title': metadata.get('title', 'N/A'),
-                'authors': metadata.get('authors', 'N/A'),
-                'keywords': metadata.get('keywords', 'N/A'),
-                'abstract': metadata.get('abstract', 'N/A')
+                "doc_id": doc_id,
+                "score": score,
+                "title": meta.get("title", "N/A"),
+                "authors": meta.get("authors", "N/A"),
+                "keywords": meta.get("keywords", "N/A"),
+                "abstract": meta.get("abstract", "N/A"),
             })
-        
+
+        return {
+            "results": results,
+            "query_info": {
+                "original_query": query,
+                "corrected_terms": corrected_terms,
+                "expanded_terms": expanded_terms,
+                "is_wildcard": any(self._is_wildcard_query(t) for t in corrected_terms)
+            }
+        }
+
+            
         if verbose:
             print(f"\nFiltered: {len(doc_scores)} → {len(filtered_docs)} docs")
-            print(f"Returning top {len(results)} results (requested: {limit})")
+            print(f"Returning top {len(results)} results (limit: {limit})")
             if results:
                 top_scores = [f"{r['score']:.2f}" for r in results[:5]]
                 print(f"Top 5 scores: {top_scores}")
@@ -579,9 +592,11 @@ class TunedDictionaryBM25Ranker:
 def main():
     """Test ranker with wildcard and repeated chars"""
     BASE_DIR = Path(__file__).resolve().parent.parent
-    BLOCKS_PATH = BASE_DIR / "streamlit_ir/data/blocks.json"
-    FRONTCODED_PATH = BASE_DIR / "streamlit_ir/data/frontcoded.json"
-    INDEX_PATH = BASE_DIR / "streamlit_ir/data/index.json"
+    BASE_DIR = Path(__file__).resolve().parent
+    BLOCKS_PATH = BASE_DIR / "data/blocks.json"
+    FRONTCODED_PATH = BASE_DIR / "data/frontcoded.json"
+    INDEX_PATH = BASE_DIR / "data/index.json"
+
     
     ranker = TunedDictionaryBM25Ranker(BLOCKS_PATH, FRONTCODED_PATH, INDEX_PATH)
     
@@ -595,12 +610,11 @@ def main():
         "ma?hine learning",             # Wildcard ?
         "sistem rekomen*",              # Wildcard at end
         "klasifikasiiiiiii penyakittttt",  # Multiple repeated chars
-        "chtbot implementsi",           # Typos
     ]
     
     for query in test_queries:
         print(f"\nQuery: '{query}'")
-        results = ranker.search(query, top_k=10, verbose=True)
+        results = ranker.search(query, top_k=3, verbose=True)
         print(f"\nTop 3 Results:")
         for i, r in enumerate(results[:3], 1):
             print(f"  {i}. {r['title'][:60]}... (score: {r['score']:.2f})")
