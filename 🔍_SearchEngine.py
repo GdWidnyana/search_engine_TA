@@ -5,7 +5,7 @@ import pytz
 from pathlib import Path
 from datetime import datetime
 
-from bm25_tuned_v2 import TunedDictionaryBM25Ranker
+from bm25_tuned_v2 import EnhancedBM25Ranker
 from utils import (
     load_search_history,
     save_search_history,
@@ -34,7 +34,7 @@ st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 @st.cache_resource
 def load_ranker():
     """Load Improved Dictionary BM25 ranker (cached)"""
-    return TunedDictionaryBM25Ranker(BLOCKS_PATH, FRONTCODED_PATH, INDEX_PATH)
+    return EnhancedBM25Ranker(BLOCKS_PATH, FRONTCODED_PATH, INDEX_PATH)
 
 
 def initialize_session_state():
@@ -63,6 +63,9 @@ def initialize_session_state():
     
     if 'show_detail' not in st.session_state:
         st.session_state.show_detail = None
+    
+    if 'trigger_search' not in st.session_state:
+        st.session_state.trigger_search = False
 
 
 def render_header():
@@ -70,7 +73,7 @@ def render_header():
     st.markdown("""
         <div class="main-header">
             <h1>🔍 Skripsi Search Engine</h1>
-            <p class="subtitle">Sistem pencarian skripsi berbasis BM25 dengan Word Segmentation</p>
+            <p class="subtitle">Sistem pencarian skripsi berbasis BM25</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -340,7 +343,9 @@ def render_search_history():
                 query = entry['query']
                 timestamp = format_timestamp(entry['timestamp'])
                 if st.button(f"🕐 {query}", key=f"history_{entry['timestamp']}", use_container_width=True):
+                    # Set query dan trigger search
                     st.session_state.query = query
+                    st.session_state.trigger_search = True
                     st.rerun()
             
             if st.button("🗑️ Hapus Riwayat", use_container_width=True):
@@ -375,7 +380,7 @@ def main():
             with st.sidebar:
                 st.markdown("---")
                 st.markdown("### 📚 Dictionary Info")
-                stats = ranker.get_dictionary_stats()
+                stats = ranker.get_stats()
                 st.metric("Total Blocks", f"{stats['num_blocks']:,}")
                 st.metric("Total Terms", f"{stats['num_terms']:,}")
                 st.metric("Compression", f"{stats['compression_ratio']:.2f}x")
@@ -405,8 +410,17 @@ def main():
     render_wildcard_expansion()
     
     # Perform search
-    if search_clicked and query:
-        st.session_state.query = query
+    should_search = (search_clicked and query) or st.session_state.trigger_search
+    
+    if should_search:
+        # Use query from session state if triggered from history, otherwise use input query
+        search_query = st.session_state.query if st.session_state.trigger_search else query
+        
+        # Reset trigger_search flag after using it
+        if st.session_state.trigger_search:
+            st.session_state.trigger_search = False
+        
+        st.session_state.query = search_query
         
         with st.spinner("🔍 Mencari..."):
             try:
@@ -414,7 +428,7 @@ def main():
                 start_time = time.time()
                 
                 # FIXED: search() returns dictionary
-                search_output = ranker.search(query, top_k=options['top_k'], verbose=False)
+                search_output = ranker.search(search_query, top_k=options['top_k'], verbose=False)
                 
                 # Extract results and query_info from dictionary
                 results = search_output["results"]
@@ -459,7 +473,7 @@ def main():
                     timestamp = datetime.now().isoformat()
                 
                 st.session_state.search_history.append({
-                    'query': query,
+                    'query': search_query,
                     'timestamp': timestamp,
                     'num_results': len(results),
                     'search_time': search_time
@@ -647,8 +661,7 @@ def main():
     st.markdown("---")
     st.markdown("""
         <div style='text-align: center; color: #666; padding: 20px;'>
-            <p>Skripsi Search Engine v2.0 | Developed by Team 4</p>
-            <p>💡 Tips: Tulis query tanpa spasi juga bisa! (e.g., "analisissentimen")</p>
+            <p>Skripsi Search Engine v1.0 | Developed by Team 4</p>
         </div>
     """, unsafe_allow_html=True)
 
