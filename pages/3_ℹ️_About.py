@@ -1,7 +1,3 @@
-"""
-About Page - System Information and Documentation
-"""
-
 import streamlit as st
 import sys
 from pathlib import Path
@@ -73,23 +69,44 @@ def render_features():
     
     with col1:
         st.markdown("""
-        ### 🔍 Core Features
-        - **BM25 Ranking Algorithm**: Algoritma ranking state-of-the-art untuk IR
-        - **Query Expansion**: Ekspansi query otomatis dengan sinonim
-        - **Stemming**: Normalisasi kata dengan Sastrawi stemmer
-        - **Typo Correction**: Koreksi kesalahan ketik otomatis
-        - **Boolean Operators**: Support untuk AND, OR, NOT operators
+        ### 🔍 Core Features & Technical Approach
         
+        #### 🎯 BM25 Ranking Algorithm
+        - **Algorithm**: BM25 (Best Match 25) - State-of-the-art probabilistic ranking
+        - **Parameters**: K1=1.8, B=0.7 (optimized for thesis documents)
+        - **Boosting Strategy**: 
+          - Title: 8.0× weight
+          - Keywords: 6.0× weight
+          - Abstract: 1.0× weight
+        
+        #### 📚 Dictionary & Indexing
+        - **Dictionary Size**: 53,397 unique terms
+        - **Block Structure**: 7,558 blocks for efficient storage
+        - **Front-Coding Compression**: Space-efficient term storage
+        - **Permuterm Index**: Wildcard query support with rotation
+        - **Total Documents**: 2,754 thesis documents indexed
+        
+        #### 🔤 Query Processing
+        - **Ultra-Smart Spell Correction**: 
+          - Vocabulary: 53,397 words
+          - Valid patterns: 60 double-character combinations
+          - Smart cleaning + substring validation
+        - **Word Segmentation**: Auto-split concatenated queries
+          - Example: `analisissentimen` → `analisis sentimen`
+        - **Wildcard Support**: `*` and `?` operators
+          - Example: `sentim*` matches `sentimen`, `sentiment`, etc.
+        - **Stemming**: Sastrawi Indonesian stemmer normalization
+        """)
+    
+    with col2:
+        st.markdown("""
         ### 🎨 User Interface
         - **Modern Design**: Interface yang clean dan intuitif
         - **Responsive Layout**: Optimal di berbagai ukuran layar
         - **Dark Mode Ready**: CSS variables untuk tema gelap
         - **Interactive Components**: Smooth animations dan transitions
         - **Real-time Search**: Hasil pencarian instant
-        """)
-    
-    with col2:
-        st.markdown("""
+        
         ### 🏷️ Advanced Features
         - **Domain Classification**: Klasifikasi otomatis ke 9+ domain
         - **Specificity Scoring**: Penilaian kekhususan dokumen
@@ -101,8 +118,149 @@ def render_features():
         - **Search History**: Tracking semua pencarian
         - **Usage Statistics**: Analisis pola penggunaan
         - **Performance Metrics**: Monitoring kecepatan pencarian
-        - **Export Functions**: Export ke CSV/JSON
+        - **Export Functions**: Export ke PDF/Excel
         - **Favorites System**: Simpan dokumen favorit
+        """)
+
+
+
+
+def render_evaluation_metrics():
+    """Render evaluation metrics"""
+    st.markdown("## 📈 Evaluation Metrics")
+    
+    st.markdown("""
+    Sistem telah dievaluasi menggunakan berbagai metrik Information Retrieval standar 
+    dengan test collection yang komprehensif.
+    """)
+    
+    # Main metrics in 3 columns
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("### 🎯 Precision & Recall")
+        st.metric("Mean Precision", "19.78%", help="Rata-rata precision dari semua query")
+        st.metric("Mean Recall", "87.46%", help="Rata-rata recall dari semua query")
+        st.metric("Mean F1-Score", "30.15%", help="Harmonic mean dari precision dan recall")
+        st.metric("R-Precision", "47.91%", help="Precision at R (R = jumlah dokumen relevan)")
+    
+    with col2:
+        st.markdown("### 🏆 Ranking Quality")
+        st.metric("MAP (Mean Average Precision)", "53.17%", help="Rata-rata precision pada setiap dokumen relevan")
+        st.metric("MRR (Mean Reciprocal Rank)", "75.69%", help="Rata-rata reciprocal rank dokumen relevan pertama")
+        st.metric("11-Point Precision", "55.70%", help="Rata-rata precision pada 11 recall points")
+    
+    with col3:
+        st.markdown("### 📊 Top-K Performance")
+        st.metric("Precision@5", "56.04%", help="Precision pada 5 dokumen teratas")
+        st.metric("Precision@10", "51.32%", help="Precision pada 10 dokumen teratas")
+        st.metric("NDCG@5", "58.61%", help="Normalized Discounted Cumulative Gain @ 5")
+        st.metric("NDCG@10", "56.74%", help="Normalized Discounted Cumulative Gain @ 10")
+    
+    # Detailed explanation
+    with st.expander("📖 Penjelasan Metrik Evaluasi"):
+        st.markdown("""
+        ### Precision & Recall Metrics
+        
+        **Precision** mengukur seberapa akurat hasil pencarian:
+        - Berapa banyak dokumen yang dikembalikan yang benar-benar relevan
+        - Formula: `Precision = Dokumen Relevan Ditemukan / Total Dokumen Ditemukan`
+        - Mean Precision 19.78% menunjukkan rata-rata ~20% dokumen yang dikembalikan relevan
+        
+        **Recall** mengukur seberapa lengkap hasil pencarian:
+        - Berapa banyak dokumen relevan yang berhasil ditemukan
+        - Formula: `Recall = Dokumen Relevan Ditemukan / Total Dokumen Relevan`
+        - Mean Recall 87.46% menunjukkan sistem menemukan ~87% dokumen relevan
+        
+        **F1-Score** adalah harmonic mean antara precision dan recall:
+        - Memberikan skor seimbang antara precision dan recall
+        - Formula: `F1 = 2 × (Precision × Recall) / (Precision + Recall)`
+        
+        **R-Precision** adalah precision pada R dokumen teratas:
+        - R adalah jumlah dokumen relevan untuk query tersebut
+        - Metrik ini lebih stabil karena R berbeda untuk setiap query
+        
+        ---
+        
+        ### Ranking Quality Metrics
+        
+        **MAP (Mean Average Precision)**:
+        - Mengukur kualitas ranking dengan mempertimbangkan posisi dokumen relevan
+        - Skor 53.17% menunjukkan performa ranking yang baik
+        - Nilai tinggi berarti dokumen relevan muncul di posisi atas
+        
+        **MRR (Mean Reciprocal Rank)**:
+        - Fokus pada posisi dokumen relevan pertama yang ditemukan
+        - Skor 75.69% sangat baik - dokumen relevan pertama rata-rata di posisi 1-2
+        - Formula: `MRR = 1 / Rank Dokumen Relevan Pertama`
+        
+        **11-Point Interpolated Precision**:
+        - Mengukur precision pada 11 recall level (0%, 10%, 20%, ..., 100%)
+        - Memberikan gambaran performa di berbagai recall level
+        - Skor 55.70% menunjukkan konsistensi yang baik
+        
+        ---
+        
+        ### Top-K Performance Metrics
+        
+        **Precision@K** mengukur precision pada K dokumen teratas:
+        - **P@5 = 56.04%**: Rata-rata 2.8 dari 5 dokumen teratas relevan
+        - **P@10 = 51.32%**: Rata-rata 5.1 dari 10 dokumen teratas relevan
+        - Metrik penting karena user biasanya hanya melihat hasil teratas
+        
+        **NDCG (Normalized Discounted Cumulative Gain)**:
+        - Mengukur kualitas ranking dengan mempertimbangkan posisi dokumen
+        - Dokumen relevan di posisi atas mendapat score lebih tinggi
+        - **NDCG@5 = 58.61%**: Kualitas 5 hasil teratas
+        - **NDCG@10 = 56.74%**: Kualitas 10 hasil teratas
+        - Normalized ke range [0, 1] untuk perbandingan
+        
+        ---
+        
+        ### 🎯 Interpretasi Hasil
+        
+        **Strengths (Kekuatan):**
+        - ✅ **High Recall (87.46%)**: Sistem sangat baik menemukan dokumen relevan
+        - ✅ **High MRR (75.69%)**: Dokumen relevan pertama muncul di posisi sangat tinggi
+        - ✅ **Good MAP (53.17%)**: Ranking dokumen relevan cukup baik
+        - ✅ **Good P@5 (56.04%)**: Lebih dari separuh hasil teratas relevan
+        
+        **Areas for Improvement:**
+        - ⚠️ **Precision (19.78%)**: Banyak dokumen tidak relevan yang ikut muncul
+        - ⚠️ **F1-Score (30.15%)**: Balance antara precision-recall bisa ditingkatkan
+        
+        **Trade-off Analysis:**
+        - Sistem cenderung ke arah **high recall, lower precision**
+        - Cocok untuk exploratory search (user ingin melihat banyak kemungkinan)
+        - User mungkin perlu menyaring lebih banyak hasil
+        - Bisa ditingkatkan dengan parameter tuning atau re-ranking
+        """)
+    
+    # System initialization info
+    with st.expander("⚙️ System Configuration"):
+        st.markdown("""
+        ```
+        ================================================================================
+        INITIALIZING ENHANCED BM25 RANKER
+        ================================================================================
+        ✓ Dictionary: 53,397 terms from 7,558 blocks
+        ✓ Index: 2,754 docs, 53,397 terms
+        [UltraSmartSpellCorrector] Vocabulary: 53,397 kata
+        [UltraSmartSpellCorrector] Valid double chars: 60 patterns
+        [UltraSmartSpellCorrector] Strategy: Smart cleaning + Substring validation
+        ✓ Configuration: K1=1.8, B=0.7
+        ✓ Boosting: Title=8.0×, Keyword=6.0×, Abstract=1.0×
+        ✓ Features: Ultra-Smart Spell Correction + Word Segmentation + Wildcards
+        ================================================================================
+        ```
+        
+        **Key Configuration Details:**
+        
+        - **Dictionary Compression**: Front-coding across 7,558 blocks
+        - **Spell Correction**: Ultra-smart dengan 53K vocabulary
+        - **BM25 Parameters**: K1=1.8 (term frequency saturation), B=0.7 (length normalization)
+        - **Field Boosting**: Title mendapat bobot tertinggi (8×)
+        - **Advanced Features**: Spell correction, word segmentation, dan wildcard query
         """)
 
 
@@ -136,18 +294,35 @@ def render_algorithm_info():
     
     ### Parameter Tuning
     
-    Sistem ini menggunakan parameter optimal:
-    - **k1 = 1.5**: Mengontrol term frequency saturation
-    - **b = 0.75**: Mengontrol pengaruh panjang dokumen
-    - **k3 = 1000**: Mengontrol query term frequency (untuk query expansion)
+    Sistem ini menggunakan parameter optimal hasil tuning:
+    - **k1 = 1.8**: Mengontrol term frequency saturation (default: 1.5)
+    - **b = 0.7**: Mengontrol pengaruh panjang dokumen (default: 0.75)
+    - Parameter ini di-tuning untuk koleksi dokumen skripsi
     
-    ### Query Expansion
+    ### Field Boosting
     
-    Sistem melakukan ekspansi query dengan:
-    1. **Stemming**: Normalisasi kata ke bentuk dasar (Sastrawi)
-    2. **Synonym Expansion**: Menambahkan sinonim dari thesaurus
-    3. **Typo Correction**: Memperbaiki kesalahan ketik
-    4. **Boolean Operators**: Support AND, OR, NOT
+    Sistem menggunakan field boosting untuk meningkatkan relevansi:
+    - **Title Boost = 8.0×**: Kata di judul mendapat bobot sangat tinggi
+    - **Keyword Boost = 6.0×**: Kata kunci mendapat bobot tinggi
+    - **Abstract Boost = 1.0×**: Abstrak sebagai baseline
+    
+    ### Query Processing Pipeline
+    
+    1. **Word Segmentation**: Memisahkan kata yang digabung
+       - Input: `analisissentimen`
+       - Output: `analisis sentimen`
+    
+    2. **Spell Correction**: Memperbaiki typo dengan vocabulary 53K kata
+       - Smart cleaning + substring validation
+       - 60 valid double-character patterns
+    
+    3. **Wildcard Expansion**: Ekspansi query dengan wildcard
+       - `sentim*` → `sentimen`, `sentiment`, `sentimental`, dll.
+       - Menggunakan permuterm index untuk efisiensi
+    
+    4. **Stemming**: Normalisasi kata ke bentuk dasar (Sastrawi)
+       - `mencari` → `cari`
+       - `pembelajaran` → `belajar`
     """)
 
 
@@ -416,6 +591,9 @@ def main():
     
     st.markdown("---")
     render_features()
+    
+    st.markdown("---")
+    render_evaluation_metrics()
     
     st.markdown("---")
     render_algorithm_info()
