@@ -86,7 +86,7 @@ def render_search_box(ranker):
         query = st.text_input(
             "Cari skripsi...",
             value=st.session_state.query,
-            placeholder="Contoh: machine learning, analisissentimen (tanpa spasi ok!)",
+            placeholder="Contoh: machine learning",
             label_visibility="collapsed",
             key="search_input"
         )
