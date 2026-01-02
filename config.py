@@ -1,7 +1,6 @@
 from pathlib import Path
 import os
 
-# OPTION A: Path relatif dari file saat ini (direkomendasikan)
 BASE_DIR = Path(__file__).parent  # Parent dari file ini
 DATA_DIR = BASE_DIR / "data"
 
@@ -19,7 +18,7 @@ PAGE_CONFIG = {
     "menu_items": {
         'Get Help': None,
         'Report a bug': None,
-        'About': "Skripsi Search Engine v2.0 - Sistem Pencarian dengan Dictionary Optimization"
+        'About': "Skripsi Search Engine v1.0 - Sistem Pencarian dengan Algoritma BM25"
     }
 }
 
@@ -260,7 +259,6 @@ SEARCH_TIPS = [
     "Sistem otomatis memperbaiki typo dan kata yang salah eja",
     "Query expansion otomatis menambahkan sinonim untuk hasil lebih lengkap",
     "Mode Advanced menampilkan score, domain, dan specificity untuk analisis mendalam",
-    "✨ NEW: Menggunakan Dictionary Optimization untuk pencarian lebih cepat!"
 ]
 
 # Example queries
